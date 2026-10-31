@@ -123,3 +123,8 @@ Context: §4.1 shows the zoom target as an editable heading, but Home can't be r
 ## Agent decisions
 
 <!-- Append A-001, A-002, … below using the format in README §5. -->
+
+### A-001 · Driver spike as a nested module (P0-05, 2026-10-26)
+Context: P0-05 compares two SQLite drivers, but `go.mod` must pin only the chosen one; the card allows deleting the spike or keeping it as a benchmark.
+Decision: keep `internal/store/driverspike/` as its own Go module (own `go.mod`), run by `.github/workflows/driverspike.yml` on changes and on demand. `make check` and `./...` in the main module do not see it.
+Alternatives: delete the spike after measuring (numbers not reproducible); build tags in the main module (the losing driver would still be in `go.mod`).

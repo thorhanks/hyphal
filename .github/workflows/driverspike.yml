@@ -1,0 +1,23 @@
+# P0-05: run the SQLite driver comparison on Linux and macOS.
+# The spike is its own module, so `make check` does not cover it.
+name: driverspike
+
+on:
+  pull_request:
+    paths: ["internal/store/driverspike/**", ".github/workflows/driverspike.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mkdir -p "$RUNNER_TEMP/spike" && DRIVERSPIKE_DIR="$RUNNER_TEMP/spike" ./internal/store/driverspike/measure.sh
