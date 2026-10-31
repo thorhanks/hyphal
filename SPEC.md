@@ -70,6 +70,7 @@ Our claimed difference: Workflowy-grade editing with local data in an open forma
 | Links to other bullets (survive moves and renames) | Must | 2 | §10.1 |
 | Search operators (`is:complete`, `has:page`, `changed:7d`) | Must | 2 | §6.2 |
 | Starred locations | Must | 2 | §6.6 |
+| Drag to move | Must | 2 | §6.5 |
 | Templates | Later | 3 | §10.1 |
 | Dates and a Today node | Never | — | §12.1 |
 | Mirrors (one bullet in two places) | Never | — | §12.1 |
@@ -552,7 +553,7 @@ This section is the only place key bindings are defined. Other sections name com
 
 - Phase 1: scroll, click to place the cursor, click a glyph to toggle collapse, click a checkbox to complete, click a breadcrumb to zoom, click a bullet glyph with Alt to zoom, overlays clickable.
 - Native text selection works inside the focused bullet. Dragging across bullets selects nothing in Phase 1.
-- Drag-to-move is an open question (§12.3); nodes move with the keyboard until it is decided.
+- **Drag-to-move (Phase 2):** drag a bullet's glyph to move its subtree, or the whole selection when dragging a selected bullet. A drop indicator shows the new parent and position before you let go, and dragging near the window's edge scrolls. Esc cancels. A drop is one undoable change set, and nothing moves outside the current zoom or into its own subtree. It uses native HTML drag and drop. Every move stays available from the keyboard.
 
 ### 6.6 Palettes, stars and small commands
 
@@ -836,7 +837,7 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 | Fuzzy matching | A Go fuzzy-finder library such as `sahilm/fuzzy` | Jump and command palettes, on the server |
 | Import / export | `encoding/json`, `encoding/xml`, small list parser | JSON, OPML, Markdown; the parser also serves the editor round trip |
 | Config | TOML (`pelletier/go-toml/v2`) | Platform paths per §7.1 |
-| Browser tests | Playwright (development only, never shipped) | **Needs Thor's approval** (§12.3). Runs under Node, pinned in `mise.toml` |
+| Browser tests | Playwright (development only, never shipped) | Approved by Thor. Runs under Node, pinned in `mise.toml` |
 | Distribution | GoReleaser | Homebrew tap for macOS, AUR package for Arch and Omarchy |
 
 ### 9.2 Package architecture
@@ -996,7 +997,7 @@ Six phases, each with an exit gate:
 |---|---|---|
 | **0 · Storage and browser foundations** | Schema, history, JSON round trip; server skeleton, protocol, outline component, key matrix | Export and import are identical; a crash loses at most the unsealed typing; the outline skeleton passes in all three engines |
 | **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages with the built-in editor, formatting; theming, palettes, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side visual review passes |
-| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; jump palette, history, page mode sync and split view; scheduled export, capture window, Edit here takeover | Every *Must* row of the parity checklist works |
+| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; drag-to-move, jump palette, history, page mode sync and split view; scheduled export, capture window, Edit here takeover | Every *Must* row of the parity checklist works |
 | **3 · Obsidian-inspired features** | Backlinks, saved searches, templates | Backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs |
 | **4 · Agent integration** | Batch `apply`, `forget`, agent usage guide, richer queries | An agent completes a scripted multi-step task with `apply` and the usage guide, and one `hyphal revert` undoes it as a unit |
 | **5 · Multi-device sync** | Device IDs, HLC merge, per-device logs, compaction; any-folder sync (iCloud Drive, Syncthing) | Two machines edit offline and converge with nothing lost |
@@ -1084,16 +1085,15 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 52 | Zoom addresses | Each zoom has a URL; browser Back and Forward move through zooms | §4.1 |
 | 53 | Page editor | Built-in editor moves to Phase 1, since the browser makes it cheap; position sync and split view stay in Phase 2 | §5.7 |
 | 54 | Mouse | Clicks and scrolling move to Phase 1 | §6.5 |
+| 56 | Drag-to-move | Native drag and drop in Phase 2, with every move still available from the keyboard | §6.5 |
 | 55 | Cut features | Glyph ASCII fallbacks, terminal matrix, kitty, tmux, OSC sequences, Bubble Tea stack, wrap-layout engine, `zoom_transition`, `glyphs`, `background`, `mouse` settings | §4, §6.4, §13 |
 
 ### 12.3 Still open
 
 **To settle before implementation resumes:**
 
-- **Design style.** Thor and the implementers agree the overall look after this spec is reviewed: typography, density, color, glyphs, motion, how far "calm page" carries over. The outcome updates §4.3, §4.6 and the default tokens.
-- **Approve Playwright.** It is a development-only test tool, not part of the UI, but it is an external dependency with a Node toolchain (§9.1). Without it, browser tests would need another driver.
+- **Design style.** Thor wants a unique style that doesn't look like a generic web app. Thor and the implementers agree the overall look after this spec is reviewed: typography, density, color, glyphs, motion, how far "calm page" carries over. The outcome updates §4.3, §4.6 and the default tokens.
 - **Spike checks not yet run by hand.** The real key matrix, real IME use, and the real `$EDITOR` terminal behavior (`plan/reports/p0-w1-web-ui.md`). The Phase 0 human cards cover them.
-- **Drag-to-move.** The terminal version ruled it out because of the medium. Workflowy has it, and native drag and drop could do it. Decide whether it becomes a Phase 2 row.
 
 **Other open items:**
 

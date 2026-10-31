@@ -15,6 +15,7 @@ P2-03 screens decision ─▶ P2-11 stars · P2-12 jump palette · P2-16 history
 P2-09 query parser (after P2-04) ─▶ P2-10 operators in filter + CLI
 P2-19 mode switching + split view
 independent: P2-13 scheduled export · P2-14 capture window · P2-15 takeover · P2-20 sort children
+P2-24 drag-to-move
 P2-22 parity suite ─▶ P2-23 gate
 ```
 
@@ -46,10 +47,10 @@ Proposal `plan/proposals/p2-02-links.md`:
 
 Stop for the human. Afterwards update P2-07, P2-08, and P1-13's `retargetLinks` hook description.
 
-### P2-03 · Decide: Phase 2 screens and drag
+### P2-03 · Decide: Phase 2 screens
 Type: decision · Spec: §6.6 (stars), §8.2 (history view), §5.9 (tag list), §6.2 (jump palette), §12.3 (Phase 2 · Screens)
 
-Proposal `plan/proposals/p2-03-screens.md` with HTML mockups using the live tokens, and keys for: History view (two modes: a node's versions, change sets by time/source; restore a version; revert a change set), Stars view, tag list (palette command result rows), jump palette result rows (text + breadcrumb layout, starred first, saved searches in P3), and click on tag → filter. If Thor approved drag-to-move (§12.3), its behavior too. Keys must satisfy §6.4's rules (no reserved keys, single keys in block selection, palette-discoverable).
+Proposal `plan/proposals/p2-03-screens.md` with HTML mockups using the live tokens, and keys for: History view (two modes: a node's versions, change sets by time/source; restore a version; revert a change set), Stars view, tag list (palette command result rows), jump palette result rows (text + breadcrumb layout, starred first, saved searches in P3), and click on tag → filter. Keys must satisfy §6.4's rules (no reserved keys, single keys in block selection, palette-discoverable).
 
 Stop for the human. Afterwards update P2-11, P2-12, P2-16 and `keymap` defaults.
 
@@ -176,9 +177,18 @@ Type: impl · Packages: `internal/cli` · Depends on: P2-05 · Spec: §10.2 ("Ta
 Deliverables (adjust per P2-01): `hyphal tag list --json` (tag, count, color), `hyphal tag rename OLD NEW` if approved.
 Acceptance criteria: JSON goldens → `TestCLI_Tag_*`.
 
+### P2-24 · Drag-to-move
+Type: impl · Packages: `internal/web`, `internal/server`, `internal/core` · Spec: §6.5, §5.4
+Deliverables: native HTML drag and drop from a bullet's glyph over `<hyphal-outline>`; a drop indicator showing parent and position (depth from the pointer's horizontal position); edge autoscroll within the row window; dragging a selected bullet carries the selection; Esc cancels; the drop calls `PlanMoveTo` with its anchor as one change set. Hovering a collapsed bullet never expands it by itself in this card. Drops outside the zoom or into the dragged subtree show no indicator and do nothing.
+Acceptance criteria:
+- AC1 Dragging a bullet between two others, and under a new parent, moves its subtree, undoable as one step → `drag move` (e2e, three engines).
+- AC2 Dragging a selected bullet moves the whole selection in order → `drag selection` (e2e).
+- AC3 Esc cancels; a drop into its own subtree changes nothing → `drag cancel and invalid` (e2e).
+- AC4 Dragging past the edge of the row window scrolls and can drop there at 100,000 nodes → `drag autoscroll` (e2e).
+
 ### P2-22 · Parity suite for Phase 2 rows
 Type: impl · Packages: `e2e/` · Spec: §3 (Phase 2 rows)
-Deliverables: `parity tags`, `parity node links`, `parity search operators`, `parity starred locations`; the interaction-matrix meta-test now includes Phase 2 bindings.
+Deliverables: `parity tags`, `parity node links`, `parity search operators`, `parity starred locations`, `parity drag to move`; the interaction-matrix meta-test now includes Phase 2 bindings.
 
 ### P2-23 · Phase 2 gate
 Type: gate · Depends on: all Phase 2 cards

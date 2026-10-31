@@ -86,7 +86,7 @@ Pin exact versions in `go.mod`. Adding any other Go module requires asking (READ
 
 **Frontend: none.** The UI imports nothing external (SPEC §2.7), with no npm packages, CDNs, polyfills, bundlers or transpilers in what ships. Each exception needs Thor's approval and a DECISIONS entry.
 
-**Development only:** `@playwright/test` under `e2e/`, pending Thor's approval (SPEC §12.3). Nothing under `e2e/` is embedded or shipped.
+**Development only:** `@playwright/test` under `e2e/`, approved by Thor on 2026-10-31. Nothing under `e2e/` is embedded or shipped.
 
 Go version: pinned in `go.mod` `go` and `toolchain` lines and `mise.toml`.
 
