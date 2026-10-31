@@ -1,0 +1,46 @@
+# P0-W1 spike only: internal/webspike is its own module and has no part in `make check`.
+name: webspike
+on:
+  push:
+    branches: ["card/p0-w1-*"]
+    paths: ["internal/webspike/**", ".github/workflows/webspike.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: internal/webspike
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run -s build
+      - run: npm run -s typecheck
+      - run: go vet . && go test -race -count=1 .
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: One full run with metrics
+        run: npx playwright test --reporter=line
+      - name: Flakiness over 20 repeats
+        if: always()
+        run: mkdir -p results && npx playwright test --repeat-each=20 --grep-invert "measure" --reporter=json > results/flake.json
+      - name: Flakiness summary
+        if: always()
+        run: |
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync("results/flake.json"));
+            console.log(JSON.stringify(r.stats));
+            const walk = (s) => { (s.specs||[]).forEach(t => t.tests.forEach(x => { if (x.status !== "expected" && x.status !== "skipped") console.log("UNEXPECTED", x.projectName, t.title); })); (s.suites||[]).forEach(walk); };
+            r.suites.forEach(walk);'

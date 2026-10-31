@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "target": "es2022", "module": "esnext", "moduleResolution": "bundler", "strict": true, "lib": ["es2023", "dom", "dom.iterable"], "skipLibCheck": true, "noEmit": true, "types": ["node"] },
+  "include": ["web/src", "e2e", "playwright.config.ts"]
+}

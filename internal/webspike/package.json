@@ -1,0 +1,16 @@
+{
+  "name": "webspike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild web/src/main.ts --bundle --format=iife --target=es2022 --outfile=assets/app.js",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.1",
+    "@types/node": "^22.18.8",
+    "esbuild": "^0.25.10",
+    "typescript": "^5.9.3"
+  }
+}
