@@ -23,7 +23,7 @@ Decision: `meta.format_id = "tree-outline"` (neutral per §1, since it lives in 
 ### D-006 · Version bumps
 Context: §7.3 "every write bumps the node's version". Decision: every op that writes the `nodes` row bumps `nodes.version`. `edit_page` bumps `pages.version` and also `nodes.version`, so one `--if-version` on a node covers its page. `set_star` bumps nothing. `hyphal page set --if-version` compares `pages.version`.
 
-### D-007 · One FIFO worker for TUI commits and reloads
+### D-007 · One FIFO worker for commits and reloads
 Context: §7.3, §8.1, §9.3. Decision: a single worker goroutine runs commit and reload jobs in order. A failed commit blocks later jobs and is retried every 3 s, which keeps history order equal to action order.
 
 ### D-008 · One `delete` op per node
@@ -48,19 +48,19 @@ Context: §5.6 says undo applies the inverse. Decision: the inverse of `insert` 
 Context: §7.1 puts `snapshots/` in the data directory. Decision: snapshots go in `<dir of db>/snapshots/`, which for the default DB is the data directory. Names follow `<dbname>-<UTC stamp>-<reason>.db`, and retention (`snapshots.keep`) is counted per DB name.
 
 ### D-015 · Purges record an empty change set
-Context: principle 4 says every change is recorded. Decision: purge (manual, Empty Trash, automatic by age) records a change set with no ops and a description such as `Purged 3 deletions (41 bullets) from Trash`. Source: `tui`, `cli`, or `cli` for automatic purges run by the CLI. Purges are not undoable.
+Context: principle 4 says every change is recorded. Decision: purge (manual, Empty Trash, automatic by age) records a change set with no ops and a description such as `Purged 3 deletions (41 bullets) from Trash`. Source: `ui`, `cli`, or `cli` for automatic purges run by the CLI. Purges are not undoable.
 
 ### D-016 · When the automatic Trash purge runs
-Context: §8.3 says purge after 30 days, without saying when. Decision: run at TUI launch (after the first frame), on the TUI's 60 s tick if more than 24 h have passed since `meta.last_trash_purge_at`, and on CLI writes under the same 24 h rule.
+Context: §8.3 says purge after 30 days, without saying when. Decision: run at server start (after the first paint), on the server's 60 s tick if more than 24 h have passed since `meta.last_trash_purge_at`, and on CLI writes under the same 24 h rule.
 
 ### D-017 · Restore placement
 Context: §8.3. Decision: if the original parent is live, reinsert at the original position key; if a live sibling has the same key, use `Between(that sibling, next)`. If the parent is not live, walk up `parent_id` through existing rows to the first live ancestor and append at its end; if the chain hits a purged row, append under Home. The message names the parent it landed under when that is not the original parent.
 
 ### D-018 · Debug logging
-Decision: no terminal logging. When `HYPHAL_DEBUG_LOG=<path>` is set, write a structured `log/slog` text log there.
+Decision: no logging to stdout from a detached server. When `HYPHAL_DEBUG_LOG=<path>` is set, write a structured `log/slog` text log there.
 
-### D-019 · Alternate screen
-Decision: the TUI uses the alternate screen and hides the terminal cursor except at the text-editing cursor (§4.3).
+### D-019 · Withdrawn
+Alternate screen; the terminal UI is gone (D-037).
 
 ### D-020 · Tabs and control characters in bullet text
 Decision: bullet text is one line. On typing or single-line paste, `\t` becomes one space, other C0/C1 control characters except ZWJ-related ones are dropped, and `\r\n`/`\n` split lines (multi-line paste rules, §5.5).
@@ -104,13 +104,13 @@ Decision: in text editing with a text selection, Ctrl+C copies the selected sour
 Decision: the envelope carries `"v": 1` (CONTRACTS §7.1).
 
 ### D-032 · Text-editing state on startup
-Decision: the TUI starts in text editing on the remembered cursor for the remembered zoom, or on the first bullet. An empty zoom shows the virtual bullet (D-036).
+Decision: the UI starts in text editing on the remembered cursor for the remembered zoom, or on the first bullet. An empty zoom shows the virtual bullet (D-036).
 
 ### D-033 · Messages for stale writes
 Decision: when a commit returns `Stale` nodes (another connection changed them first), the footer message is `"<text>" was also changed elsewhere; both changes are in history`. For `ErrInvalid`: `The outline changed elsewhere; nothing was changed`.
 
 ### D-034 · Phase 1 page view follows URLs only
-Decision: in Phase 1, Tab cycles through URL links in page view and Enter opens them with the URL opener. `[[node links]]` join in Phase 2 with node links.
+Decision: in Phase 1, Tab cycles through URL links in page view and Enter opens them in a new tab. `[[node links]]` join in Phase 2 with node links.
 
 ### D-035 · Task and heading markers combine
 Context: §5.4 and §7.5 list the markers one at a time. Decision: a bullet can be both a task and a heading. `ConvertLeadingMarker` takes a task marker first, then a heading marker (`[ ] ## Title`). The dialect writes them in the same order.
@@ -119,6 +119,30 @@ Context: §5.4 and §7.5 list the markers one at a time. Decision: a bullet can 
 Context: §4.1 shows the zoom target as an editable heading, but Home can't be renamed. Decision:
 - At Home there is no heading row; the breadcrumb alone shows `Home`. The palette command "Edit zoom in $EDITOR" opens the whole zoom (D-022) at any level, including Home.
 - When the current zoom has no visible children (or none at all), the outline shows one **virtual empty bullet**. It is not in the database. The first typed character, Enter or paste turns it into a real node (one insert, then normal typing). Esc on it enters block selection on nothing: the footer shows the hint `Nothing to select`. This replaces D-032's "empty zoom shows the heading focused".
+
+### D-037 · Web UI replaces the terminal UI
+Context: Thor's decision of 2026-10-31 after spike P0-W1. Decision: SPEC v4. Cards P0-17 (layout), P1-04 (clipboard) and the Bubble Tea stack are withdrawn. `core`, `store` and the leaf packages keep their designs. Finished cards P0-01 to P0-05 stand. `source` value `tui` becomes `ui`, and `meta.tui_opened` becomes `ui_opened`; no database exists yet, so no migration is needed.
+
+### D-038 · No PRs or branches
+Context: Thor's instruction of 2026-10-31. Decision: agents commit and push directly to `main` (README §4). The old "Human review: yes" card flag is gone; the things it protected now fall under "stop and ask" in README §5.
+
+### D-039 · Plain JavaScript and no build step
+Context: Thor's "HTML, CSS, JS". The spike's TypeScript and esbuild are not carried over. Decision: ES modules served as written. Types are JSDoc comments. A type checker would be an extra dev tool, and isn't used unless Thor approves one. Browser tests are `.mjs`.
+
+### D-040 · Light DOM for all components
+Context: theming (§4.4) and text selection. Decision: no Shadow DOM. Selection APIs don't pierce shadow roots consistently across engines, and shadow styles would make themes harder. The cost is no style encapsulation, handled by cascade layers and element-name-scoped nesting.
+
+### D-041 · Launch tickets
+Context: the spike put its secret in the launch URL, which other local processes can read from the process list (P0-W1 report). Decision: `hyphal` reads a `0600` state file holding a server secret, `POST`s it to get a single-use ticket with a 30 s life, and opens a URL with that ticket. The session cookie is the real credential.
+
+### D-042 · Markers on the focused bullet use the Custom Highlight API
+Context: §4.6, §5.8. Concealed markers must reappear on the focused bullet, dimmed, without touching the text nodes being edited. Decision: focused rows hold only source text; the server sends marker ranges and `CSS.highlights` paints them. Other rows render runs. No markup parser in JavaScript. Where the API is missing, markers show undimmed.
+
+### D-043 · Readline keys dropped on Linux
+Context: §6.4. Web convention and the browser's own behavior beat terminal convention. Decision: Ctrl+A selects all in the bullet on Linux, and Ctrl+E, Ctrl+U and Ctrl+W are unbound (Ctrl+W is reserved anyway). macOS keeps its native Ctrl+A and Ctrl+E. Alt+b and Alt+f are gone. Thor may overrule at review.
+
+### D-044 · One session per server
+Context: §8.6. Decision: one `core.Outline` and one undo stack per server, shared by all tabs of that database; zoom and scroll window are per tab, while cursor and block selection follow the editing tab.
 
 ## Agent decisions
 

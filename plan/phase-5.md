@@ -24,4 +24,4 @@ Produce `plan/proposals/p5-01-sync-design.md` and, after human approval, replace
 
 ## Expected card areas (for orientation only)
 
-Device ID + HLC (store/core) · schema migration · log writer · log reader/watcher · merge engine (fields) · tree-move CRDT · tombstones/Forget · compaction + bootstrap · sync CLI · sync view (TUI) · simulation harness · convergence properties · docs (iCloud Drive, Syncthing setup) · gate.
+Device ID + HLC (store/core) · schema migration · log writer · log reader/watcher · merge engine (fields) · tree-move CRDT · tombstones/Forget · compaction + bootstrap · sync CLI · sync view (UI) · simulation harness · convergence properties · docs (iCloud Drive, Syncthing setup) · gate.

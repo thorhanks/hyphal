@@ -1,16 +1,16 @@
-# Hyphal — Project Specification v3
+# Hyphal — Project Specification v4
 
-Oct 15, 2026 · @Thor
+Oct 31, 2026 · @Thor
 
 ## 1. Overview
 
-We are building a local-first, terminal-native infinite outliner in Go, inspired by Workflowy, for Linux and macOS. It is one continuous tree of bullets that you can capture into, indent, reorder, collapse and zoom. The outline is stored in a single SQLite file with full edit history and automatic snapshots, and can be exported to Markdown, JSON or OPML at any time.
+We are building a local-first infinite outliner, inspired by Workflowy, for Linux and macOS. It is a single Go binary that serves a native web UI to your browser on the loopback interface. It is one continuous tree of bullets that you can capture into, indent, reorder, collapse and zoom. The outline is stored in a single SQLite file with full edit history and automatic snapshots, and can be exported to Markdown, JSON or OPML at any time.
 
-**Goal:** a faithful Workflowy experience in a beautiful terminal UI that matches the Omarchy desktop theme. Obsidian-inspired knowledge features (links, backlinks, saved searches) are the bonus.
+**Goal:** a faithful Workflowy experience in a fast, beautiful, easily themed local web app. Obsidian-inspired knowledge features (links, backlinks, saved searches) are the bonus.
 
-**Pitch:** An infinite outline for your terminal: one tree, unlimited depth, stored in one open, durable file you can always export.
+**Pitch:** An infinite outline that lives on your machine: one tree, unlimited depth, stored in one open, durable file you can always export.
 
-**Status:** Concept / pre-implementation. The app is named **Hyphal**; the binary, directories and window class use `hyphal`. The name appears only in user-facing places: the binary, data and config directory names, the window class, and the comment or header that marks an export. It never appears in the schema, operations, the sync log format or JSON field names, so renaming the app later only means moving directories.
+**Status:** Concept / pre-implementation; the storage foundations are in progress. Version 4 replaces the terminal UI of earlier versions with a web UI, following the spike in `plan/reports/p0-w1-web-ui.md`. The app is named **Hyphal**; the binary, directories and window class use `hyphal`. The name appears only in user-facing places: the binary, data and config directory names, the window class, the page title, and the comment or header that marks an export. It never appears in the schema, operations, the sync log format or JSON field names, so renaming the app later only means moving directories.
 
 ## 2. Product principles
 
@@ -18,21 +18,22 @@ We are building a local-first, terminal-native infinite outliner in Go, inspired
 2. **Thought-first editing.** Capturing and rearranging bullets needs no mode switch. Commands that need single keys use a lightweight block-selection state, not Vim modes. Block selection and page view/edit are modes in the strict sense; they are kept few and shallow: Esc always backs out one level, and Enter always returns to typing.
 3. **Your data is never locked in.** One SQLite file with a plain, documented schema, readable by standard tools. Export to Markdown, JSON or OPML at any time; a JSON export restores the whole outline, and its history too when exported with it.
 4. **Nothing is lost silently.** Every change is recorded in history, deletes go to the Trash, and snapshots protect against a damaged file.
-5. **Every change is attributable and reversible.** History records whether a change came from the TUI, the CLI, the editor round trip or an agent, and any change set can be reverted.
-6. **Local-first and private.** No account, server, cloud dependency or network connection.
-7. **Terminal-native.** Match the system theme (Omarchy first), read like a calm page rather than a dashboard, work inside tmux, degrade gracefully in legacy terminals, and keep every action available from the keyboard.
-8. **Composable.** Users, scripts and agents work through a robust CLI with JSON output, never by touching the database directly.
-9. **Simple core first.** The outlining experience comes before knowledge-management features.
+5. **Every change is attributable and reversible.** History records whether a change came from the UI, the CLI, the editor round trip or an agent, and any change set can be reverted.
+6. **Local-first and private.** No account, cloud dependency or remote connection. The only network use is one server bound to the loopback interface, and the only client is your own browser. The page loads nothing from anywhere else.
+7. **Native web, no framework.** The UI is native web components, HTML, CSS and JavaScript using modern browser features only. No external frontend library enters the UI without Thor's explicit approval, and there is no required build step.
+8. **Easily themed.** Every visual value is a CSS custom property, and a theme is one small CSS file (§4.4). Keep every action available from the keyboard.
+9. **Composable.** Users, scripts and agents work through a robust CLI with JSON output, never by touching the database directly.
+10. **Simple core first.** The outlining experience comes before knowledge-management features.
 
 ## 3. Users, scenarios and comparison set
 
-**Primary users** are Workflowy-style outliners who live in the terminal and value plaintext, Git history and local ownership. The data lives in SQLite; scheduled Markdown export (§7.5) is the bridge to plaintext and Git. Later, users who want scripts or coding agents to read and update their outline.
+**Primary users** are Workflowy-style outliners who want local ownership, keyboard-first editing and a look they control. The data lives in SQLite; scheduled Markdown export (§7.5) is the bridge to plaintext and Git. Later, users who want scripts or coding agents to read and update their outline.
 
 **Core scenarios:**
 
-1. **Session.** Launch from a shell and type immediately. Enter adds bullets, Tab nests them. Collapse a project, zoom into a task, filter for a word, quit.
-2. **Quick capture.** From any shell (`hyphal add "Call the dentist"`) or a Hyprland keybind (`hyphal capture --window`), text lands in the Inbox node without opening the full TUI.
-3. **Edit in `$EDITOR`.** Press a key to open the current subtree as Markdown in `$EDITOR` (Neovim on Omarchy). Save and quit; the changes apply as one undoable step.
+1. **Session.** Launch from the app launcher or a shell and type immediately. Enter adds bullets, Tab nests them. Collapse a project, zoom into a task, filter for a word, close the window.
+2. **Quick capture.** From any shell (`hyphal add "Call the dentist"`) or a Hyprland keybind (`hyphal capture --window`), text lands in the Inbox node without opening the full outline.
+3. **Edit in `$EDITOR`.** Press a key to open the current subtree as Markdown in `$EDITOR` (Neovim on Omarchy), in a terminal window. Save and quit; the changes apply as one undoable step.
 4. **Recover.** A week later, restore a deleted branch from the Trash, or revert one bad change made by a script without touching anything else.
 5. **Leave.** `hyphal export --format markdown` produces a readable outline that works anywhere, at any time.
 
@@ -43,11 +44,11 @@ We are building a local-first, terminal-native infinite outliner in Go, inspired
 | Workflowy | The editing feel we are matching: zoom, Esc selection, Enter/Backspace rules |
 | Logseq | Closest precedent: a Markdown-file outliner with block IDs. Study its ID scheme and its file-sync problems |
 | Obsidian Outliner plugin | Outlining inside plain Markdown files; the interop target |
-| Org-mode | Mature plaintext outlining, folding and refiling in a terminal editor |
+| Dynalist, Tana | Other web outliners; baseline for speed and keyboard handling in a browser |
 | Bike, TaskPaper | Writing-first outliner feel; simple file formats |
-| outl, hnb, h-m-m | Existing terminal outliners; baseline for what a TUI can feel like |
+| Org-mode | Mature plaintext outlining, folding and refiling |
 
-Our claimed difference: Workflowy-grade editing, in a terminal, with local data in an open format and complete, reversible history.
+Our claimed difference: Workflowy-grade editing with local data in an open format, complete and reversible history, and a UI you can restyle with one CSS file.
 
 ### Workflowy parity checklist
 
@@ -78,19 +79,22 @@ Our claimed difference: Workflowy-grade editing, in a terminal, with local data 
 
 ## 4. Information model and UI
 
+**The look is not final.** Thor and the implementers will agree the overall design style after this spec is reviewed and before UI work starts (§12.3). The rest of §4 fixes structure and behavior. Anything describing appearance is a starting point that the design talk may change, and it should change only theme tokens and component CSS, not behavior.
+
 ### 4.1 Global tree
 
 - Exactly one root per database ("workspace" and "outline" both mean one database file). The root is a real row with `parent_id` NULL, its ID stored in `meta`, and is shown as **Home**. It can't be renamed, deleted, moved, completed or starred, and has no page.
 - Every other bullet is a node with editable text, ordered children, exactly one parent, and a permanent random ID (§7.2).
 - No distinction between bullet, task or project. Any bullet can also carry a Markdown page (§5.7). Completion is an attribute any node can have.
 - **Zoom** makes any node the temporary root. The zoomed node is shown as a heading, with only its descendants below it. The heading can be focused and edited like a bullet.
-- **Breadcrumbs** show the path to the zoom target. They always start at Home and use `›` as the separator. Long paths are truncated in the middle: `Home › … › Development › Tooltips`.
+- **Zoom is in the URL.** Each zoom has its own address (`/#/<node-id>`, Home is `/`), so browser Back and Forward move through zooms and a zoom can be bookmarked. The address holds only the node ID.
+- **Breadcrumbs** show the path to the zoom target. They always start at Home, use `›` as the separator, and each crumb is a link. Long paths are truncated in the middle: `Home › … › Development › Tooltips`.
 - Collapse/expand is independent of zoom and persists across sessions (§7.2).
 - No artificial depth limit.
 
-### 4.2 Phase 1 mockup (zoomed into Projects)
+### 4.2 Screen structure (zoomed into Projects)
 
-Default settings: comfortable density, no indent guides, footer hints for text editing.
+Structure only; the look comes from the theme.
 
 ```text
 Home › Projects                                            outline  ●
@@ -111,143 +115,127 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 
 ### 4.3 Visual language
 
-| State | Glyph | ASCII fallback |
+| State | Default glyph | Rule |
 | --- | --- | --- |
-| Collapsed, has children | `▸` | `>` |
-| Expanded, has children | `▾` | `v` |
-| Leaf | `•` | `-` |
-| Task, open / done | `☐` / `☑` after the bullet glyph | `[ ]` / `[x]` |
-| Heading style | Bold text, extra space above | Bold, or `#` marker without bold |
-| Completed | Dimmed + strikethrough text; glyph unchanged | Dimmed text + `x` marker |
-| Selected (block selection) | Reverse-video row | Same |
+| Collapsed, has children | `▸` | Clicking the glyph expands |
+| Expanded, has children | `▾` | Clicking the glyph collapses |
+| Leaf | `•` | |
+| Task, open / done | `☐` / `☑` after the bullet glyph | Native-feeling checkbox behavior; clicking toggles completion |
+| Heading style | Bold text, extra space above | |
+| Completed | Dimmed + strikethrough text; glyph unchanged | |
+| Selected (block selection) | `selection` token background on the whole row | |
 
+- Glyphs are defined in CSS (`content`) so a theme can replace them. They are never read as text by the editor.
 - Completion never replaces the bullet glyph, so a completed parent still shows whether it is collapsed.
 - No information is carried by color alone.
-- Indent is 2 columns. Faint `│` indent guides are a setting, off by default. Past 8 levels of the current zoom, each further level indents by 1 column instead of 2, and the footer suggests zooming.
-- **Wrapped lines** continue under the start of the text, not under the glyph: continuation rows are indented past the bullet glyph and any checkbox, so each bullet reads as one block.
-- **Focus:** in text editing, the focused bullet shows the terminal cursor and its glyph in the accent color; nothing else changes. Concealed markers follow this focus. In block selection the terminal cursor is hidden.
+- Each level indents by the `--indent` token. Faint indent guides are a setting, off by default. Past 8 levels of the current zoom, each further level indents by half as much, and the footer suggests zooming.
+- **Wrapped lines** continue under the start of the text, not under the glyph, so each bullet reads as one block.
+- **Focus:** in text editing, the focused bullet shows the caret and its glyph in the accent color; nothing else changes. Concealed markers follow this focus. In block selection no caret is shown.
 
-### 4.4 Theme matching (Omarchy first)
+### 4.4 Theming
 
-**Must have:** on Omarchy, the app matches the desktop theme and follows every theme change while running, with no restart and no configuration.
+**Must have:** restyling the app takes one CSS file and no code changes. On Omarchy, the app matches the desktop theme and follows every theme change while running, with no reload and no configuration.
 
-- **Colors:** all UI colors use the terminal's 16 ANSI colors plus its default foreground and background. Omarchy themes recolor the terminal, so the app follows every theme change instantly, on any OS and in any terminal, with no theme files to read or watch. There are no truecolor themes in V1.
-- **Light or dark:** the app asks the terminal for its background color (OSC 11) at launch, and again on focus-in and on the terminal's color-scheme notification where supported, so a switch between light and dark themes is picked up. A terminal that doesn't answer is treated as dark; the `background` setting (`auto`, `light`, `dark`) overrides it.
-- **Fonts:** a terminal app always draws in the terminal's font, so the app matches Omarchy's font choice automatically. Omarchy's font switcher changes the terminal font, and the app re-renders on the resize/redraw event that follows.
-- Strikethrough, dim and italic each have fallbacks.
+- **Tokens are the contract.** All colors, fonts, sizes, spacing, radii, glyphs and motion are CSS custom properties on `:root`, listed in `internal/web/assets/tokens.css` and documented in `docs/theming.md`. Component CSS uses tokens only, never raw values; a test fails on a raw color or font outside `tokens.css` and the bundled themes.
+- **Cascade layers set the order:** `@layer reset, tokens, components, theme, user`. A theme can't be beaten by component specificity, and a user stylesheet wins over everything.
+- **Light DOM.** Web components render into the light DOM, so any selector in a theme can reach any part of the UI. Shadow DOM is not used: it would hide parts from themes and breaks text selection across browsers.
+- **Themes are files.** A theme is one `.css` file that overrides tokens in `@layer theme`, and may restyle components too. The app ships `light` and `dark` plus `auto` (follows `prefers-color-scheme`). Users add themes by dropping a file in `~/.config/hyphal/themes/`. The app reloads a theme when its file changes, without a page reload.
+- **`omarchy` theme.** When `~/.local/state/omarchy/current/theme/colors.toml` exists and `theme` is `auto`, the app maps that file's roles onto tokens (`background`, `foreground`, `accent`, `muted`, `selection`, the named colors and `mode`) and follows changes while running. Only hex colors and `mode` are accepted, so a theme file can't inject CSS. The file's path and format belong to Omarchy and may change, so a missing or unreadable file falls back to `auto` without an error.
+- **Fonts.** The default font tokens are `system-ui` for chrome and `ui-monospace, monospace` for code. `monospace` resolves through fontconfig on Linux, so Omarchy's font choice applies on the next load.
+- **User overrides.** `~/.config/hyphal/user.css`, if present, loads in `@layer user` after any theme.
+- **Theme CSS is trusted as your own config.** It comes only from your config directory, never from the outline. The Content Security Policy (§9.3) still blocks remote loads, so a theme can't reach the network.
+- **Text colors** in bullets (§5.8) use eight named tokens (`--color-red`, …), so colored text follows the theme.
 
 ### 4.5 Chrome
 
-- **Save indicator:** nothing when saved; `●` while typing is not yet committed (until it seals, §7.3); a red label if a write fails.
+- **Save indicator:** nothing when saved; `●` while typing is not yet committed (until it seals, §7.3); a red label if a write fails or the local server can't be reached.
 - **Screen layout,** top to bottom, all inside the reading column:
   1. **Header row:** breadcrumb left; database name (the file name without `.db`) and save indicator right.
   2. **Banner row,** only while a banner is active (below).
-  3. A blank row, then the outline (or page, or full-screen view).
-  4. **Footer row,** the last row of the terminal. It shows one of three things, in priority order: a message, the filter query while a filter is active (`/ tooltip · 12 matches`), or contextual key hints.
+  3. The outline (or page, or full-screen view), which scrolls.
+  4. **Footer row,** fixed to the bottom of the window. It shows one of three things, in priority order: a message, the filter query while a filter is active (`/ tooltip · 12 matches`), or contextual key hints.
 - **Footer hints:** contextual keys for the current state; the `footer` setting turns them off (messages and the filter still use the row). F1 (or `?` in block selection) opens the full help overlay (§4.8).
-- **Messages** are the app's only transient feedback; nothing floats and nothing times out. A message replaces the footer's content and stays until the next keypress, then the footer returns to what it showed before. Messages confirm undoable actions (`Moved "Design notes" and 214 descendants to Trash · Ctrl+Z undoes`), summarize an editor round trip, say where a restore landed, report a clipboard failure, and explain a no-op key ("hints" elsewhere in this spec are messages). A newer message replaces an older one.
-- **Banners:** persistent, for failed writes, a database opened read-only, a restore that just ran, or an invalid config. A banner stays until its cause is gone; an informational one (a restore that just ran) clears on the next change to the outline.
-- **Views on demand:** Trash (§4.8) and History open as temporary full-screen views, not panels. No sidebar, no daily journal.
-- **First run:** the first time the TUI opens a database (a flag in `meta`), it adds a short sample outline that teaches the core keys, unless the outline already holds anything besides an Inbox (for example after an import). Databases created by the CLI start with only Home, so scripts and agents get a clean outline.
+- **Messages** are the app's only transient feedback; nothing floats and nothing times out. A message replaces the footer's content and stays until the next keypress, then the footer returns to what it showed before. Messages confirm undoable actions (`Moved "Design notes" and 214 descendants to Trash · Ctrl+Z undoes`), summarize an editor round trip, say where a restore landed, report a clipboard failure, and explain a no-op key ("hints" elsewhere in this spec are messages). A newer message replaces an older one. The footer is an ARIA live region.
+- **Banners:** persistent, for failed writes, a lost connection to the local server, a database opened read-only, a restore that just ran, or an invalid config. A banner stays until its cause is gone; an informational one (a restore that just ran) clears on the next change to the outline.
+- **Views on demand:** Trash (§4.8) and History open as temporary full-page views, not panels. No sidebar, no daily journal.
+- **First run:** the first time the UI opens a database (a flag in `meta`), it adds a short sample outline that teaches the core keys, unless the outline already holds anything besides an Inbox (for example after an import). Databases created by the CLI start with only Home, so scripts and agents get a clean outline.
 
 ### 4.6 Visual design
 
-The outline should read like a calm page, not a terminal dashboard.
+The starting direction, subject to the design talk (§12.3): the outline should read like a calm page, not a dashboard.
 
-- **Centered reading column.** Text width is capped (default 90 columns, configurable) and centered in wide terminals, like Workflowy's page. Breadcrumbs and status sit inside the same column.
+- **Centered reading column.** Text width is capped by the `--column` token (default about 90 characters; the `column_width` setting overrides it) and centered in wide windows. Breadcrumbs and status sit inside the same column.
 - **Inline formatting rendered, markers concealed.** `**bold**` shows as bold; the markers appear only on the bullet being edited, as in Obsidian's live preview (§5.8).
 - **Typographic hierarchy:**
   - Optional heading bullets: bold, with extra space above, for section-like nodes.
   - A bullet with a page shows a dim `≡` page marker after its text. There is no page preview in the outline; zoom into the page to read it.
   - Muted breadcrumbs and footer; full-strength color only for text you wrote.
-  - Tags as colored text ("chips") from the theme palette, never filled backgrounds, so they stay readable on light themes (§5.9).
+  - Tags as colored text ("chips"), not filled backgrounds by default (§5.9).
 - **Stability and motion:**
-  - Scroll margin of 3 rows; the cursor never sits on the screen edge.
-  - The cursor row stays fixed on screen when collapsing or expanding.
-  - No flicker: only changed cells are redrawn.
-  - Optional, very brief zoom transition, off by default.
-- **Density modes:** *comfortable* (the default: a blank line between the top-level siblings of the current zoom) and *compact*. A heading-style bullet always gets one blank line above it (none when it is the first row under the zoom heading); this blank line is not added to the density blank line, so there is never more than one blank row in a row.
-- **Glyph sets:** Unicode by default, ASCII when the locale isn't UTF-8 (`LC_ALL`, `LC_CTYPE`, `LANG`) or the config says so.
+  - The caret never sits within `--scroll-margin` (default 3 rows) of the viewport's edge.
+  - The caret's row stays fixed on screen when collapsing or expanding.
+  - Scrolling keeps its position through virtualization (§9.3); content doesn't jump.
+  - Motion comes only from tokens, is brief, and is off under `prefers-reduced-motion`.
+- **Density modes:** *comfortable* (the default: a blank line between the top-level siblings of the current zoom) and *compact*, as `data-density` on the root element for CSS to act on. A heading-style bullet always gets space above it, except as the first row under the zoom heading, and this space is not added to the density space.
 - **Concealed markers** appear only on the focused bullet. When they reflow its line, the bullet's first row stays fixed on screen.
-- **Contrast:** muted text must stay readable on light themes, so on a light background (§4.4) the app uses bright black rather than dim.
-- **Narrow terminals:** below 40 columns or 10 rows the app shows only "Terminal too small" with the current size. Below the column cap, the reading column fills the width.
-- **Color tokens.** UI code uses semantic roles, never raw colors:
+- **Narrow windows:** below the column cap, the reading column fills the width with a 16 px gutter. There is no "too small" state; phones aren't a target but nothing breaks.
+- **Semantic tokens.** UI CSS uses roles, never raw colors:
 
-  | Role | Used for | Color |
-  | --- | --- | --- |
-  | `text` | Bullet and page text | Default foreground |
-  | `muted` | Breadcrumbs, footer, page marker, completed text | Bright black, or dim on dark backgrounds (see Contrast) |
-  | `accent` | Focused glyph, overlay borders, page headings in edit mode | Blue |
-  | `selection` | Block selection, palette highlight | Reverse video |
-  | `match` | Filter and search matches | Yellow, underlined |
-  | `highlight` | `==highlight==` text | Yellow background |
-  | `chip` | Tag chips | A stable ANSI color per tag (§5.9) |
-  | `error` | Failed-write label, error banners | Red |
-  | `warning` | Read-only and restore banners | Yellow |
-  | `guide` | Optional indent guides | Bright black |
+  | Token | Used for |
+  | --- | --- |
+  | `--text` | Bullet and page text |
+  | `--bg` | Page background |
+  | `--muted` | Breadcrumbs, footer, page marker, completed text |
+  | `--accent` | Focused glyph, overlay borders, focus rings, page headings in edit mode |
+  | `--selection`, `--selection-text` | Block selection, palette highlight |
+  | `--match` | Filter and search matches |
+  | `--highlight` | `==highlight==` text |
+  | `--error`, `--warning` | Failed-write label and banners; read-only and restore banners |
+  | `--guide` | Optional indent guides |
+  | `--color-*` | The eight text colors (§5.8) and tag chips |
 
-- **Let the desktop frame the app.** Hyprland already draws the window border, gaps and focus color, so the main outline draws no border of its own. The app never paints its own background: it uses the terminal's default background, so the theme's background and any terminal opacity show through. Rounded borders (`╭─╮`) appear only on floating overlays (palettes, help, backlinks), with the title in the top border and the border in the accent color, as in btop and lazygit.
-- **Restraint.** No splash screen, toolbars or busy status bar. Breadcrumbs, the save dot and one footer row are all the chrome. Instant response is part of the look: every keypress lands in the next frame (§9.4).
-- **Reference mockups** are part of the spec before Phase 1 ends: a 100-column laptop terminal, a full-screen ultrawide, a deep zoom, an active filter, and a light theme. Phase 1's exit gate includes a side-by-side "calm" review against Workflowy and against Omarchy's bundled terminal apps on the same screen.
+  Size, spacing, font, radius, glyph and motion tokens are listed in `tokens.css`.
+- **Contrast.** Both bundled themes meet WCAG AA for text and muted text. A test checks this for `light` and `dark`.
+- **Overlays** are native `<dialog>` elements (palettes, help, backlinks), floating and centered, with a title and the accent border.
+- **Restraint.** No splash screen, toolbars or busy status bar. Breadcrumbs, the save dot and one footer row are all the chrome. Instant response is part of the look (§9.4).
+- **Reference screens** are part of the spec before Phase 1 ends: a laptop window, a full-screen ultrawide, a deep zoom, an active filter, and a light theme. Phase 1's exit gate includes a side-by-side review against Workflowy.
 
-**Reference sketches** (the window border is Hyprland's, not the app's). They show Phase 2 features (tag chips, the jump palette) and the block-selection footer; footer hints are contextual. The header's right side (database name and save dot) is omitted here.
+### 4.7 At home on the desktop
 
-```text
-  Home › Projects › ControllerCraft
-
-  ControllerCraft
-
-  ▾ Development
-    • Inventory navigation                    ← completed: dimmed, struck
-    • Improve controller mappings  #input     ← tag chip in theme color
-    • Fix tooltip positioning  ≡              ← has a page
-
-  ▸ Design notes
-
-                                      ? help · Ctrl+P commands · Ctrl+K jump
-```
-
-```text
-             ╭─ Commands ─────────────────────────────╮
-             │ › col                                  │
-             │   Color…                        Esc c  │
-             │   Collapse all                         │
-             │   Expand to level…           Esc 1–9   │
-             ╰────────────────────────────────────────╯
-```
-
-### 4.7 At home on Omarchy
-
-Omarchy is *omakase*: one beautiful, opinionated default, keyboard first, themed everywhere, no bloat, with plain config files for anyone who disagrees. The app follows the same rules, so it feels like it shipped with the system.
+Omarchy is *omakase*: one beautiful, opinionated default, keyboard first, themed everywhere, no bloat, with plain config files for anyone who disagrees. The app follows the same rules.
 
 **Omakase defaults**
 
-- One carefully tuned default look and keymap. Settings exist for real needs (column width, density, keymap), not for every pixel.
-- No settings screen. "Edit settings" in the command palette opens the commented `config.toml` in `$EDITOR` and reloads it on save, the way Omarchy hands you its own config files.
-- On Omarchy there is nothing to configure: the terminal already carries the theme and the font (§4.4).
+- One carefully tuned default look and keymap. Settings exist for real needs (column width, density, keymap), not for every pixel; everything else is a theme.
+- No settings screen. "Edit settings" in the command palette opens the commented `config.toml` in `$EDITOR` and reloads it on save.
 
 **Shared keyboard conventions**
 
 The full keymap is in §6.4. The conventions it follows:
 
-- `?` in block selection, or F1 anywhere, shows every command with its key, as lazygit, Impala and BlueTUI do.
+- `?` in block selection, or F1 anywhere, shows every command with its key.
 - Esc backs out one level and never zooms out: overlay → where you were; page edit → page view → outline; text editing → block selection → clear filter → nothing (a hint). Zooming out is always explicit.
 - There are no side panes. Backlinks is a floating overlay like the palettes; Esc closes it.
-- Ctrl+Q quits from anywhere. Pending typing is flushed first, so there is never anything to save.
+- Closing the window or tab quits. Typing already reached the server, so there is never anything to save (§7.3).
 
-**Native app integration**
+**Launching**
 
-- On Linux, ships a `.desktop` entry and its own window class, so it launches from the app launcher like Omarchy's other terminal apps and can be targeted by Hyprland window rules. On macOS it is launched from a terminal; there is no app bundle in V1.
-- **Capture window** (Phase 2): `hyphal capture --window` starts a new terminal window running `hyphal capture` with its own class, which a window rule makes small and floating. The terminal command is a config template; the default uses `xdg-terminal-exec` with the class option of Omarchy's default terminal. Inside, type one line and press Enter: it lands in the Inbox, and the window closes. Plain `hyphal capture` does the same in the current terminal. The docs suggest a Super binding, checked against Omarchy's defaults.
+- `hyphal` starts the server if needed and opens the UI (§9.3). It prefers an app window with no browser chrome (`--app=` on a Chromium-family browser, with its own window class under Hyprland), and otherwise opens a tab in the default browser. The `browser` setting overrides this.
+- On Linux, ships a `.desktop` entry and its own window class, so it launches from the app launcher and can be targeted by Hyprland window rules. On macOS it is launched from a terminal; there is no app bundle in V1.
+- **Capture window** (Phase 2): `hyphal capture --window` opens a small app window on the `/capture` route with its own class, which a window rule makes small and floating. Type one line and press Enter: it lands in the Inbox, and the window closes. Plain `hyphal capture` is a one-line prompt in the current terminal. The docs suggest a Super binding, checked against Omarchy's defaults.
 
 ### 4.8 Phase 1 screens
 
 Phase 1 needs these screens besides the outline and the page view. Later-phase screens are listed in §12.3.
 
-- **Trash view** (full screen, §8.3): one row per deletion, newest first: the deleted bullet's text, its former breadcrumb, the descendant count and the age. Enter previews the subtree read-only; `r` restores; `d` purges that deletion after a one-line confirmation (purging is final, so purge and Empty Trash are the only actions in the app that ask for confirmation); Esc returns to the outline.
+- **Trash view** (full page, §8.3): one row per deletion, newest first: the deleted bullet's text, its former breadcrumb, the descendant count and the age. Enter previews the subtree read-only; `r` restores; `d` purges that deletion after a confirmation (purging is final, so purge and Empty Trash are the only actions in the app that ask for confirmation); Esc returns to the outline.
 - **Help overlay** (F1, `?`): every command in the current context with its key, generated from the keymap (§6.4), filterable by typing.
 - **Color picker** (`c` in block selection, or the command palette): an overlay listing the eight colors as swatches with their names, plus "No color". `1`–`8` (and `0` for No color) or arrows and Enter choose; Esc cancels.
-- **Read-only mode** (newer schema, failed integrity check, or a second TUI): a persistent banner says why; everything works except changes, and any editing key shows a hint instead.
+- **Read-only mode** (newer schema, failed integrity check, or another tab is editing): a persistent banner says why; everything works except changes, and any editing key shows a hint instead.
+
+### 4.9 Accessibility
+
+The outline is a WAI-ARIA `tree` with `treeitem` rows carrying level, expanded and selected state. The focused bullet is a real editable element, overlays are `<dialog>`, and every control is keyboard reachable. Tab is indent inside the outline, as in Workflowy; F6 moves focus out to the page's other regions. Native browser zoom works at any level. This is a floor, not a separate feature, and each screen's tests check it.
 
 ## 5. Editing behavior
 
@@ -331,19 +319,19 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 
 ### 5.5 Paste and clipboard
 
-- Bracketed paste is enabled; the terminal's own paste key delivers it (§6.4). Single-line paste inserts text, replacing any text selection.
+- Paste uses the browser's `paste` event, so any paste key or menu works and no clipboard permission is needed. Single-line paste inserts text, replacing any text selection.
 - Multi-line paste is parsed with the shared Markdown dialect (§7.5) into a subtree. Plain lines become bullets; indentation becomes nesting; `^id` suffixes are ignored, so pasted nodes always get new IDs.
   - Cursor at the end of a bullet: the subtree is inserted as siblings after it.
   - Cursor mid-text: the bullet is split first (§5.2), and the subtree goes between the two halves.
   - Empty bullet: the subtree replaces it.
   - In block selection: inserted as siblings after the selection.
 - Copy (block selection) writes the selected bullets and their descendants to the system clipboard as indented Markdown in the shared dialect: text with inline markup, task, completion and heading markers. Pages and IDs are not copied. Cut copies, then deletes to the Trash.
-- **Cut and paste is a move.** The app remembers its last cut. If the clipboard still holds exactly the text that cut wrote, paste restores the cut bullets at the paste position instead of creating new ones: same IDs, pages, stars and history, as one change set (the cut and the move both stay undoable). Text pasted from anywhere else, or after the clipboard changed, creates new bullets as above. To copy a subtree with its pages, use Duplicate (§5.4).
-- **Clipboard transport:** in a local session, the platform tool first: `wl-copy` (Wayland), `xclip` or `xsel` (X11), `pbcopy` (macOS). These report failure, so a failed copy shows a message. Over SSH (`SSH_TTY` set), or when no local tool exists, the app uses OSC 52, which works through SSH and tmux but gives no reply, so its failures can't be detected; the docs explain tmux's `set-clipboard on`.
+- **Cut and paste is a move.** The app remembers its last cut. If pasted text is exactly the text that cut wrote, paste restores the cut bullets at the paste position instead of creating new ones: same IDs, pages, stars and history, as one change set (the cut and the move both stay undoable). Text pasted from anywhere else, or after the clipboard changed, creates new bullets as above. To copy a subtree with its pages, use Duplicate (§5.4). The `paste` event carries the text, so the app never reads the clipboard on its own.
+- **Clipboard transport:** the Async Clipboard API (`navigator.clipboard.write`). The Markdown comes from the server, so the write happens in the same user gesture through a `ClipboardItem` holding a promise where the browser supports it, and otherwise right after the reply. A failure shows a message. Phase 0 verifies this on all three browser engines (the spike verified Chromium only).
 
 ### 5.6 Undo and redo
 
-- **Undo is per session.** The TUI keeps an undo stack in memory. Each step is one change set you started from the TUI, including `$EDITOR` round trips and page saves made from it. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the TUI clears the redo steps. Quitting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
+- **Undo is per session.** The server keeps an undo stack in memory for the editing tab. Each step is one change set you started from the UI, including `$EDITOR` round trips and page saves made from it. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the UI clears the redo steps. The server exiting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
 - Changes from the CLI or an agent are never on the stack, so Ctrl+Z never undoes something you didn't do; they are reverted with `hyphal revert`.
 - If a later change from another source touched the same fields, undo follows the revert rule: those fields are skipped and reported (§8.2).
 - Typing coalesces into one step per node; the step closes when the typing operation seals (§7.3). Ctrl+Z first seals any open typing, so the typing just done is the step undone.
@@ -352,22 +340,22 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 ### 5.7 Pages
 
 - **Every bullet stays one line.** Long-form writing lives on an optional **page** attached to the bullet: a full Markdown document with headings, lists, code blocks, quotes and tables, as long as you like.
-- **Page zoom:** `p` in block selection opens the bullet's page in view mode; on a bullet without one, it opens an empty page in edit mode (`$EDITOR` in Phase 1). A page saved empty is not created; clearing an existing page's text deletes the page, as one undoable change. Esc from view mode returns to the outline in block selection on the page's bullet. Normal zoom (`z`) still shows only the bullet's children.
+- **Page zoom:** `p` in block selection opens the bullet's page in view mode; on a bullet without one, it opens an empty page in edit mode. A page saved empty is not created; clearing an existing page's text deletes the page, as one undoable change. Esc from view mode returns to the outline in block selection on the page's bullet. Normal zoom (`z`) still shows only the bullet's children.
 - **Title:** the bullet's text is the page title. It is not stored in `pages.markdown`; view mode renders it as the page heading, with inline markup.
   - In `$EDITOR` and in edit mode, the title appears as a first line `# Title`. On save, the first line is the title if it is an H1 (`# …`): changing it renames the bullet. If the first line is not an H1, the bullet's text is unchanged and the whole file is the page. (So deleting the title line of a page whose body starts with `# Intro` renames the bullet to "Intro"; undo reverses it.)
   - **Delete page** (command palette) removes the page from a bullet, as one undoable change.
 - **Indicator:** a dim page marker follows the bullet's text (§4.6). The outline never shows page content; zoom into the page to read it.
 - **Two modes, no live preview.** Editing inside rendered output is the hardest and buggiest part of a Markdown editor, so pages separate reading from writing:
-  - **View mode** renders the Markdown read-only: headings, lists, quotes, tables, and code blocks syntax-highlighted with the theme palette. It scrolls, and Tab moves between links; Enter on the focused `[[link]]` zooms to its target.
-  - **Edit mode** is a plain multi-line text editor showing the Markdown exactly as typed. Syntax highlighting keeps it pleasant without concealment: headings bold in the accent color, markers dimmed, code blocks tinted, links underlined. It shares the outline's wrap-layout and cursor engine.
+  - **View mode** renders the Markdown read-only: headings, lists, quotes, tables, and code blocks syntax-highlighted with theme tokens. It scrolls, and Tab moves between links; Enter on the focused `[[link]]` zooms to its target.
+  - **Edit mode** is a plain multi-line editor (`contenteditable="plaintext-only"`) showing the Markdown exactly as typed. Syntax highlighting through the CSS Custom Highlight API keeps it pleasant without concealment or touching the text: headings bold in the accent color, markers dimmed, code blocks tinted, links underlined.
 - **Switching:** `e` in view mode, or Enter with no link focused, enters edit mode; Esc in edit mode returns to view mode. The parser's source ranges keep your place: switching scrolls to the same block and puts the cursor on it.
-- **Split view** (wide terminals): `s` in view mode shows source and rendered output side by side, updating as you type. Off by default; a setting can make it the default above a chosen width.
+- **Split view** (wide windows): `s` in view mode (Phase 2) shows source and rendered output side by side, updating as you type. Off by default; a setting can make it the default above a chosen width.
 - **Common elements of both modes:**
   - The breadcrumb continues with a page marker and the mode: `Home › Projects › ControllerCraft › ≡ view`.
   - Same centered reading column and theme as the outline.
 - **Editing, staged:**
-  - **Phase 1:** view mode, with `e` opening the page in `$EDITOR` (Neovim on Omarchy). On exit, the page is saved back as one undoable change set.
-  - **Phase 2:** the built-in edit mode, mode switching with position sync, and split view. `e` then opens the built-in editor and `E` opens `$EDITOR`.
+  - **Phase 1:** view mode and the built-in edit mode. `e` opens the built-in editor and `E` opens `$EDITOR` (Neovim on Omarchy). Each edit saves as one undoable change set.
+  - **Phase 2:** mode switching with position sync, and split view.
   - Live preview is not planned. Concealed markers remain only on single-line bullets in the outline (§5.8), where they are simple.
 - **A page belongs to its bullet:** it moves with it, goes to the Trash and comes back with it, and is copied by Duplicate.
 - **Links and tags work on pages:** `[[` links to bullets, `#tags` count for the page's bullet, and pages appear in backlinks (Phase 3).
@@ -384,11 +372,11 @@ Formatting uses Markdown-style markers, typed directly or wrapped around selecte
 | Italic | `*text*` | `*` |
 | Strikethrough | `~~text~~` | `~` twice |
 | Inline code | `` `text` `` | `` ` `` |
-| Link (URL) | `[label](https://…)` | — (rendered as the label, an OSC 8 hyperlink where the terminal supports it; `o` in block selection opens it) |
+| Link (URL) | `[label](https://…)` | — (rendered as the label, a real link; `o` in block selection or a click opens it in a new tab) |
 | Highlight | `==text==` | `=` twice |
 | Text color | `<red>text</red>` | — (Color… in the command palette) |
 
-- **Colors:** `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `purple`, `gray`. Each maps to an ANSI color, so colored text follows theme changes.
+- **Colors:** `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `purple`, `gray`. Each maps to a theme token, so colored text follows theme changes.
 - `<red>` and `==highlight==` were chosen because they are short and readable when concealment is off. `<red>` is not HTML, so Markdown export converts it (below). `==highlight==` renders in Obsidian but not in plain CommonMark tools. Unknown tags are left as plain text.
 - **Wrapping:** with text selected (Shift+arrows in text editing), typing `*`, `~`, `=` or `` ` `` wraps the selection in that character instead of replacing it, and keeps it selected, so a second press nests the wrap (`*` twice makes bold). The command palette's Bold, Italic and Color… commands apply to the text selection, or to whole bullets in block selection.
 - Applying a color to whole bullets (`c` in block selection) wraps each selected bullet's text in one color tag, replacing any color tag that already wraps it.
@@ -399,14 +387,14 @@ Formatting uses Markdown-style markers, typed directly or wrapped around selecte
   - A backslash escapes a marker: `\*`.
   - Color tags nest with other styles but not with each other.
   - Only the markers in the table are recognized while typing, so `_` and `__` stay literal (safe for `snake_case`). Importers convert `_italic_` and `__bold__`.
-- **Color mapping:** red, yellow, green, cyan and blue use the matching ANSI color. Orange uses bright red, purple uses magenta, and gray uses bright black.
+- **Color mapping:** each name maps to its `--color-<name>` token (§4.4). In the Omarchy theme, orange uses `orange`, purple uses `magenta` and gray uses `muted`.
 - Markdown export keeps the markers; colors export as `<span style="color: …">` so Obsidian renders them.
 
 ### 5.9 Tags (Phase 2)
 
 - `#tag` anywhere in a bullet or page. Letters, digits, `-`, `_` and `/` are allowed; `/` makes nested tags (`#project/lighthouse`), as in Obsidian.
-- Tags render as colored text (chips, §4.6). Each tag gets a stable color from the palette, overridable in config.
-- `o` in block selection, or a click (Phase 2), sets the in-place filter to the bullet's tag. Enter never follows a tag; it always edits. Typing `#` offers completion from existing tags.
+- Tags render as colored text (chips, §4.6). Each tag gets a stable color from the `--color-*` tokens, overridable in config.
+- `o` in block selection, or a click, sets the in-place filter to the bullet's tag. Enter never follows a tag; it always edits. Typing `#` offers completion from existing tags.
 - A tag list in the command palette shows every tag with its count.
 
 ## 6. Navigation, search, integration and input
@@ -427,14 +415,15 @@ Formatting uses Markdown-style markers, typed directly or wrapped around selecte
   - `#tag` (includes nested tags), `changed:7d`, `created:2026-10`
   - `"exact phrase"`, `-word` to exclude, terms combined with AND by default, `OR` between terms
 - **Search sees what you see.** Matching and highlighting run on the markup-stripped text (concealed markers removed, links shown as their display text), so `**bold** text` matches "bold text" and highlights map directly onto the rendered row.
-- **Search runs in memory.** Every query is a case-insensitive substring scan of the in-memory tree, ignoring diacritics; there is no search index. The tree holds page text too, loaded in the background after the first frame so launch stays fast. Phase 0 verifies Unicode case folding, diacritics and the 50 ms target at 100,000 nodes.
+- **Search runs in memory.** Every query is a case-insensitive substring scan of the in-memory tree, ignoring diacritics; there is no search index. The tree holds page text too, loaded in the background after the first paint so launch stays fast. Phase 0 verifies Unicode case folding, diacritics and the 50 ms target at 100,000 nodes.
 - Trashed nodes never match.
 - A match inside a page keeps its bullet visible with the page marker highlighted, and shows the matching line dimmed beneath it.
 - Saved searches arrive in Phase 3 (§10.1).
 
 ### 6.3 External editor and quick capture
 
-- **Edit in `$EDITOR`** (Phase 1): writes the focused bullet's subtree (or the selection, or the whole zoom when the zoom heading is focused) to a temp Markdown file in the shared dialect (§7.5), suspends the TUI and opens `$EDITOR`. Each line carries its node's ID as a ` ^id` suffix so edits map back.
+- **Edit in `$EDITOR`** (Phase 1): the server writes the focused bullet's subtree (or the selection, or the whole zoom when the zoom heading is focused) to a temp Markdown file in the shared dialect (§7.5) and opens it through the `editor.command` setting, which by default runs `$EDITOR` in a new terminal window (`xdg-terminal-exec` on Linux, a Terminal.app script on macOS). The outline stays visible with a `Editing in $EDITOR…` message and keeps working. Each line carries its node's ID as a ` ^id` suffix so edits map back.
+- **When the edit ends.** The server applies the file when the command exits. Some terminals return at once because an existing instance opens the window, so the default command wraps the editor and signals completion through a marker file rather than trusting the terminal's exit. Phase 0 tests this with the real terminals in §6.4's matrix. A `Finish editing` button and palette command apply the file manually as a fallback.
 - The file always contains every live descendant, whatever is collapsed, hidden by Show / hide completed, or hidden by an active filter. A line missing from the file therefore always means "delete this node", never "it wasn't shown".
 - On exit, the file is parsed and diffed against the subtree. Everything applies as one change set with source `editor`, undoable with Ctrl+Z, and a message summarizes it ("3 changed, 2 new, 1 to Trash").
   - Changed text, task, completion or heading markers update their nodes. Order and indentation in the file become the new structure, so moving lines moves nodes.
@@ -445,28 +434,30 @@ Formatting uses Markdown-style markers, typed directly or wrapped around selecte
   - Only a trailing ` ^` followed by a valid ID (§7.2) is an ID; any other `^` is text.
 - Pages are not part of the file. Each bullet keeps its page through its ID; pages are edited on their own (§5.7).
 - The temp file lives in a private directory (`$XDG_RUNTIME_DIR/hyphal/`, or `hyphal/tmp/` in the data directory, mode `0700`) and is created `0600`. Editors may keep their own swap and undo files elsewhere; the docs say so.
-- If a bullet in the subtree changes from another connection while the editor is open, the concurrency rule of §7.3 applies on save: your edit lands after the other change, which stays revertible, and the message says so.
+- If a bullet in the subtree changes while the editor is open, in the UI or from another connection, the concurrency rule of §7.3 applies on save: your edit lands after the other change, which stays revertible, and the message says so.
 - If the file can't be parsed, nothing is applied: the temp file is kept and a banner offers to reopen it.
-- **Quick capture** (Phase 1): `hyphal add "text" [--under <node>]` (§10.2) appends to the Inbox node by default, in its own transaction. The Inbox is a top-level node named `Inbox`, created on first use; its ID is stored in `meta`, so it can be renamed or moved freely and capture follows it. If the Inbox is in the Trash or has been purged, capture creates a new top-level `Inbox`, points `meta` at it, and says so; a trashed old Inbox stays in the Trash untouched. A running TUI notices the change through SQLite's `PRAGMA data_version` and refreshes.
+- **Quick capture** (Phase 1): `hyphal add "text" [--under <node>]` (§10.2) appends to the Inbox node by default, in its own transaction. The Inbox is a top-level node named `Inbox`, created on first use; its ID is stored in `meta`, so it can be renamed or moved freely and capture follows it. If the Inbox is in the Trash or has been purged, capture creates a new top-level `Inbox`, points `meta` at it, and says so; a trashed old Inbox stays in the Trash untouched. A running server notices the change through SQLite's `PRAGMA data_version` and refreshes open tabs.
 
-### 6.4 Keymap and terminal support
+### 6.4 Keymap and browser support
 
-This section is the only place key bindings are defined. Other sections name commands and may mention their keys, but this table wins. In code the keymap is data, one table per context, and a test fails if a key is bound twice in one context, a command has no binding that works without the kitty keyboard protocol, a command in the block-selection table below has no single key there, or a default binding outside word editing uses Alt.
+This section is the only place key bindings are defined. Other sections name commands and may mention their keys, but this table wins. In code the keymap is data, one table per context, and a test fails if a key is bound twice in one context, a command in the block-selection table below has no single key there, or a default binding is one a browser reserves.
 
-**Contexts:** global, text editing, block selection, filter input, page view, page edit (Phase 2), overlays (palettes, pickers, help, backlinks) and the Trash view. The Esc chain moves between them (§4.7).
+**`Ctrl` in this spec means `Mod`:** Ctrl on Linux, Cmd on macOS. Native text keys keep each platform's own behavior (below).
 
-**Two layers.** Block selection is the complete layer for everyday bullet commands: each has a single key there, and single keys arrive the same in every terminal, on Linux and macOS. Chords are shortcuts for the most frequent commands, limited to keys that also arrive everywhere: Ctrl+letter, Tab, Shift+arrows and Ctrl+Shift+Up/Down. No command is bound to Alt, Option, Cmd or a bare Ctrl+arrow; Alt appears only in word-editing keys, as terminals send them. One key, Ctrl+Enter, needs the kitty keyboard protocol, and it is only an alternative.
+**Contexts:** global, text editing, block selection, filter input, page view, page edit, overlays (palettes, pickers, help, backlinks) and the Trash view. The Esc chain moves between them (§4.7).
+
+**Two layers.** Block selection is the complete layer for everyday bullet commands: each has a single key there. Chords are shortcuts for the most frequent commands. No default binding uses a key the browser won't give up (below).
 
 **Global** (every context, unless that context's table rebinds the key)
 
 | Command | Key | Notes |
 | --- | --- | --- |
-| Quit | Ctrl+Q | Flushes pending typing first |
 | Help overlay | `?` in block selection, F1 | F1 needs Fn on Mac laptops |
-| Command palette | Ctrl+P | |
+| Command palette | Ctrl+P | Replaces the browser's print |
 | Jump palette (Phase 2) | Ctrl+K | |
-| Undo / redo | Ctrl+Z / Ctrl+Y | |
+| Undo / redo | Ctrl+Z / Ctrl+Y, Ctrl+Shift+Z | Always the app's stack, never the browser's (§5.6) |
 | (Save) | Ctrl+S | Nothing to save; shows "Saved automatically" |
+| Zoom back / forward | The browser's Back / Forward | Moves through zoom history (§4.1) |
 
 **Text editing** (the default state). Commands without a chord here are in block selection: Esc, then the key.
 
@@ -476,20 +467,20 @@ This section is the only place key bindings are defined. Other sections name com
 | Backspace / Delete at bullet edges | Backspace / Delete | §5.3 |
 | Indent / outdent | Tab / Shift+Tab | |
 | Block selection | Esc | |
-| Move by character / visual line | Arrow keys | |
-| Move by word | Ctrl+Left / Ctrl+Right, Alt+Left / Alt+Right, Alt+`b` / Alt+`f` | Whichever the terminal sends; Option+Left/Right on macOS |
-| Start / end of visual line, then bullet | Home / End, Ctrl+A / Ctrl+E | Cmd+Left/Right on macOS, where the terminal maps them |
-| First / last bullet in the zoom | Ctrl+Home / Ctrl+End | |
+| Move by character / visual line | Arrow keys | Crosses bullet edges at a stable column |
+| Move by word | The platform's keys | Ctrl+Left/Right on Linux, Option+Left/Right on macOS |
+| Start / end of visual line, then bullet | Home / End | Cmd+Left/Right on macOS, Ctrl+A / Ctrl+E on macOS |
+| First / last bullet in the zoom | Ctrl+Home / Ctrl+End | Cmd+Up/Down on macOS |
 | Scroll a screen | Page Up / Page Down | |
-| Delete word backward | Ctrl+W, Ctrl+Backspace, Alt+Backspace | Option+Backspace on macOS |
-| Delete to start of visual line | Ctrl+U | Cmd+Backspace on macOS, where the terminal maps it |
-| Extend text selection | Shift+arrows, Shift+Home/End, Ctrl+Shift+Left/Right | |
+| Delete word backward | Ctrl+Backspace | Option+Backspace on macOS |
+| Select all text in the bullet | Ctrl+A | Linux; Cmd+A on macOS |
+| Extend text selection | Shift+arrows, Shift+Home/End, Ctrl+Shift+Left/Right | Within one bullet |
 | Wrap selected text in a marker | `*`, `~`, `=`, `` ` `` | Only with text selected (§5.8) |
-| Copy / cut selected text | Ctrl+C / Ctrl+X | Ctrl+C with no selection shows "Ctrl+Q quits" |
-| Paste | The terminal's paste (Ctrl+Shift+V, Cmd+V) | Bracketed paste (§5.5); the app binds no paste key |
+| Copy / cut selected text | Ctrl+C / Ctrl+X | |
+| Paste | Ctrl+V | §5.5 |
 | Move subtree up / down | Ctrl+Shift+Up / Down | |
-| Toggle complete | Ctrl+Enter | Kitty protocol only; Esc `x` works everywhere |
-| Filter | Ctrl+F | |
+| Toggle complete | Ctrl+Enter | |
+| Filter | Ctrl+F | Replaces the browser's find, which can't see virtualized rows |
 
 **Block selection.** Single keys act on the selected bullets. Chords from text editing that act on a bullet also work here and apply to the whole selection.
 
@@ -513,7 +504,7 @@ This section is the only place key bindings are defined. Other sections name com
 | Ctrl+C | Copy as Markdown (§5.5) |
 | Ctrl+X | Cut: copy, then delete to the Trash |
 | `p` | Open page |
-| `o` | Follow the bullet's link or tag; with several, a picker lists them. A URL opens in the default browser (`xdg-open` on Linux, `open` on macOS) |
+| `o` | Follow the bullet's link or tag; with several, a picker lists them. A URL opens in a new browser tab |
 | `e` | Open subtree in `$EDITOR` |
 | `D` | Duplicate subtree |
 | `h` | Show / hide completed |
@@ -536,40 +527,36 @@ This section is the only place key bindings are defined. Other sections name com
 | Home / End | Top / bottom |
 | Tab / Shift+Tab | Focus next / previous link |
 | Enter | Follow the focused link; with no link focused, edit |
-| `e` | Edit: `$EDITOR` in Phase 1, the built-in editor from Phase 2 |
-| `E` (Phase 2) | Open in `$EDITOR` |
+| `e` | Edit in the built-in editor |
+| `E` | Open in `$EDITOR` |
 | `s` (Phase 2) | Toggle split view |
 | Esc | Back to the outline, in block selection on the page's bullet |
 
-**Page edit** (Phase 2): the text-editing keys for movement, selection, clipboard and wrapping. Enter inserts a newline, Tab inserts two spaces, and Esc returns to view mode.
+**Page edit:** the text-editing keys for movement, selection, clipboard and wrapping. Enter inserts a newline, Tab inserts two spaces, and Esc returns to view mode.
 
 **Overlays:** typing filters the list; Up/Down or Ctrl+N/Ctrl+P move (inside an overlay Ctrl+P moves up instead of reopening the palette); Enter chooses; Esc closes. In the color picker, `1`–`8` choose a color directly and `0` removes it.
 
 **Trash view** (§4.8): Up/Down move; Enter previews the deletion; `r` restores it; `d` purges it after confirmation; Esc returns to the outline.
 
-**Terminal rules**
+**Browser rules**
 
-- **Kitty keyboard protocol.** The app enables it through Bubble Tea when available. Only Ctrl+Enter needs it (without it, it arrives as Enter), and Esc `x` does the same everywhere.
-- **Alt is for word editing only.** Legacy terminals and tmux send Alt+key as Esc then the key, and Bubble Tea reads a quick Esc+key as Alt+key; macOS terminals send the same for Option+key when Option is set as Meta. Alt+`b`, Alt+`f` and Alt+Backspace move or delete by word; every other Alt key does nothing. A slow Esc then a key enters block selection and runs that key there. `b`, `f` and Backspace do nothing in block selection beyond a hint, so neither reading of those three ever does harm.
-- **Bare Esc** is recognised after Bubble Tea's escape timeout; the kitty protocol removes that wait.
-- **tmux.** The docs recommend `set -s escape-time 10` and `set -s extended-keys on` (with the `extkeys` terminal feature) and ship the snippet.
-- **Readline keys.** The editing keys that macOS terminals send for Cmd and Option combinations are supported on both platforms: Ctrl+A, Ctrl+E, Ctrl+U, Ctrl+W and Alt+`b`/`f`. Other readline keys are not emulated; Ctrl+K and Ctrl+P are app commands.
-- **Flow control.** Raw mode disables XON/XOFF, so Ctrl+Q and Ctrl+S reach the app; the test matrix verifies this.
-- **Compositors.** Bindings that a desktop compositor commonly intercepts (Super combinations under Hyprland, Ctrl+arrows under macOS) are never used.
-- Keymap is configurable in TOML, per context. The same duplicate check runs when the config loads; on a conflict the app keeps the default binding for that command and shows a banner.
-- A test matrix covers Ghostty, Kitty, Alacritty, foot and WezTerm on Linux, and Ghostty, Kitty, Alacritty, WezTerm, iTerm2 and Terminal.app on macOS, each bare and inside tmux, recording which bindings arrive intact.
-
-**macOS keyboard:** the keymap is the same as on Linux and needs no terminal setup. Cmd+Left/Right and Cmd+Backspace work where the terminal maps them to Ctrl+A, Ctrl+E and Ctrl+U (Ghostty by default, iTerm2 with its Natural Text Editing preset); Option+Left/Right/Backspace work as Alt+`b`/`f`/Backspace or as Alt+arrows. Ctrl+Left/Right word movement may be taken by Spaces. Apple's Terminal.app is treated as ANSI-only; Ghostty, kitty, WezTerm, Alacritty and iTerm2 are fully supported.
+- **Supported browsers:** the current and previous major versions of Chromium-family browsers, Firefox and Safari, on Linux and macOS. CI runs Chromium, Firefox and WebKit. The app window (§4.7) is the recommended way to run on Linux.
+- **Reserved keys.** Browsers keep some keys for themselves in a normal tab: at least Ctrl+W, Ctrl+T, Ctrl+N, Ctrl+Tab, and Ctrl+Q on Linux. No default binding uses them, and a config override that does gets a warning banner.
+- **The rest are canceled.** The app calls `preventDefault` for its bindings (Ctrl+P, Ctrl+F, Ctrl+S and so on). Native text behavior is left alone wherever the app has no rule for it.
+- **Native undo is disabled for bullets.** `beforeinput` `historyUndo` and `historyRedo` route to the app's stack, including from menus.
+- **Compositors.** Super combinations under Hyprland and Ctrl+arrows under macOS Spaces are never used by default.
+- **Keys are configurable** in TOML, per context. The same checks run when the config loads; on a conflict the app keeps the default binding for that command and shows a banner.
+- **Human key matrix.** `/keyprobe` (development builds and `hyphal serve --dev`) lists every binding and which ones reach the page. It is recorded by hand for Chromium in a tab and an app window, Firefox and Safari, because automated tests bypass browser-level shortcuts.
 
 ### 6.5 Mouse
 
-- Phase 2: scroll, click to place the cursor, click a glyph to toggle collapse.
-- Mouse capture disables the terminal's native text selection. The app documents Shift+drag (which most terminals use to bypass capture) and offers a config toggle to turn capture off.
-- No drag-to-move; nodes move with the keyboard.
+- Phase 1: scroll, click to place the cursor, click a glyph to toggle collapse, click a checkbox to complete, click a breadcrumb to zoom, click a bullet glyph with Alt to zoom, overlays clickable.
+- Native text selection works inside the focused bullet. Dragging across bullets selects nothing in Phase 1.
+- Drag-to-move is an open question (§12.3); nodes move with the keyboard until it is decided.
 
 ### 6.6 Palettes, stars and small commands
 
-- **Command palette (Ctrl+P, Phase 1):** every command searchable by name, showing its key binding, recently used first. It is the discoverability layer for everything in this spec, so terminal key limits never hide a feature.
+- **Command palette (Ctrl+P, Phase 1):** every command searchable by name, showing its key binding, recently used first. It is the discoverability layer for everything in this spec, so key limits never hide a feature.
 - **Stars (Phase 2):** "Toggle star" stars the bullet you're on: the focused bullet, or the selected ones in block selection. To star the zoom target, toggle it on the zoom heading. Stars appear first in the jump palette and in a Stars view; `is:starred` finds them.
 - **Small commands (Phase 1),** with keys in §6.4 where they have one. Rarely used commands are palette-only by design: Delete page, Sort children, Copy link to node, and Bold, Italic and Color… applied to whole bullets.
   - Expand all (`0`) and expand to level 1–9 under the current node; level 1 collapses everything below the children
@@ -597,6 +584,11 @@ Data directory
 
 Config (both platforms, CLI convention)
   ~/.config/hyphal/config.toml              (honors XDG_CONFIG_HOME)
+  ~/.config/hyphal/themes/*.css             # your themes (§4.4)
+  ~/.config/hyphal/user.css                 # your overrides (§4.4)
+
+Runtime
+  $XDG_RUNTIME_DIR/hyphal/server-*.json     # how `hyphal` finds a running server (§9.3)
 
 Sync folder (Phase 5, user-chosen, e.g. inside iCloud Drive or Syncthing)
   <sync-folder>/hyphal/<device-id>.log      # §7.6
@@ -609,7 +601,7 @@ Separate outlines are separate database files, selected with `--db` or a config 
 ```sql
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
 -- schema_version, format_id (neutral, never the app name),
--- root_id, inbox_id, tui_opened (§4.5), a one-paragraph description of the schema
+-- root_id, inbox_id, ui_opened (§4.5), a one-paragraph description of the schema
 
 CREATE TABLE nodes (
   id           TEXT PRIMARY KEY,     -- random, stable forever: 12 chars, lowercase base32
@@ -669,12 +661,13 @@ CREATE INDEX nodes_in_trash   ON nodes(deleted_at) WHERE deleted_at IS NOT NULL;
 ### 7.3 Transactions and concurrency
 
 - Every user action is one transaction that updates `nodes` and writes its history together (§8.2).
-- **Typing is committed when it seals.** Consecutive typing in one node forms one operation, kept in memory until it seals: after a 2-second pause, on leaving the node, on any structural action, on quit, or 5 seconds after it opened. It is then written once and never changed. A crash loses at most the unsealed typing, 5 seconds at worst.
-- Pending typing is flushed and sealed on quit, on SIGHUP (terminal closed) and on SIGTERM, before the app exits.
+- **Typing is committed when it seals.** The browser sends each keystroke's resulting text to the server (§9.3). Consecutive typing in one node forms one operation, kept in the server's memory until it seals: after a 2-second pause, on leaving the node, on any structural action, on window close, or 5 seconds after it opened. It is then written once and never changed. A crash of the server loses at most the unsealed typing, 5 seconds at worst.
+- **The browser keeps what the server hasn't acknowledged.** Every typing message has a sequence number, and every state reply echoes the last one applied. A reply built before the latest typing never overwrites it (the spike found this bug). If the connection drops, the page keeps unacknowledged text, shows a banner, reconnects and resends. A closed tab can only lose keystrokes still in flight on loopback.
+- Pending typing is flushed and sealed when the last tab closes (after the grace period, §9.3), on SIGHUP and on SIGTERM, before the server exits.
 - WAL mode with `synchronous=FULL`. The extra cost is negligible at this write rate.
-- The TUI keeps an in-memory tree for rendering; all writes go through `core` to `store`.
-- The CLI opens its own connection with a busy timeout. The TUI polls `PRAGMA data_version` about every 500 ms; when another connection has written, it reloads the whole tree off the UI loop and keeps zoom, cursor and selection by node ID. Unsealed typing survives the reload and still commits afterwards, under the concurrency rule below. Incremental reloading is a later optimization if ever needed.
-- **Concurrent edits to one node.** Every write bumps the node's `version`. If another connection changes a node while the TUI holds unsealed typing on it, the user's typing is never dropped: it commits as a new change set after the other change, which stays in history and can be reverted, and a message says so. A CLI or agent that must not overwrite newer work passes `--if-version <n>` and gets a conflict error instead. The same rule applies to a page open in `$EDITOR` while `hyphal page set` runs.
+- The server keeps an in-memory tree for the UI; all writes go through `core` to `store`.
+- The CLI opens its own connection with a busy timeout and doesn't need the server. The server polls `PRAGMA data_version` about every 500 ms; when another connection has written, it reloads the whole tree on its worker and keeps each tab's zoom, cursor and selection by node ID. Unsealed typing survives the reload and still commits afterwards, under the concurrency rule below. Incremental reloading is a later optimization if ever needed.
+- **Concurrent edits to one node.** Every write bumps the node's `version`. If another connection changes a node while the server holds unsealed typing on it, the user's typing is never dropped: it commits as a new change set after the other change, which stays in history and can be reverted, and a message says so. A CLI or agent that must not overwrite newer work passes `--if-version <n>` and gets a conflict error instead. The same rule applies to a page open in `$EDITOR` while `hyphal page set` runs.
 
 ### 7.4 Migrations
 
@@ -694,7 +687,7 @@ CREATE INDEX nodes_in_trash   ON nodes(deleted_at) WHERE deleted_at IS NOT NULL;
 - JSON export never contains the config file or snapshots.
 - Every export records the app and the export time without breaking its format: a top-level `exported_by` field in JSON, `<head>` elements in OPML (after the `<?xml` declaration), and an HTML comment on the first line of Markdown, which importers skip.
 - Exports are written atomically (temp file, then rename).
-- **Scheduled export** (Phase 2) is an optional setting: Markdown or JSON, daily or on quit, into a folder you choose (for example a Git repo), keeping the last N exports. There is no daemon: a daily export is due when the last one is more than 24 hours old, checked at launch, at quit and on the TUI's timer. `hyphal export --scheduled` runs it from a systemd timer, launchd or cron.
+- **Scheduled export** (Phase 2) is an optional setting: Markdown or JSON, daily or on quit, into a folder you choose (for example a Git repo), keeping the last N exports. There is no daemon: a daily export is due when the last one is more than 24 hours old, checked at launch, at quit and on the server's timer. `hyphal export --scheduled` runs it from a systemd timer, launchd or cron.
 - CI checks that database → JSON → database is identical: every exported field is equal, including IDs, positions, timestamps, pages, stars and view state, and history when exported with `--history`.
 
 **Markdown dialect.** Export, import, multi-line paste (§5.5) and the editor round trip (§6.3) share one dialect, close to GitHub-flavored Markdown:
@@ -754,8 +747,8 @@ Three layers protect the data, each against a different failure: history against
 ### 8.1 Durability
 
 - WAL mode, `synchronous=FULL`, one transaction per action (§7.3).
-- `PRAGMA quick_check` runs in the background after the first frame, so it never delays launch; its duration on large databases is measured in Phase 0. A failure switches the session to read-only at once, writes any uncommitted typing to a recovery Markdown file in the data directory, and offers to restore the latest good snapshot.
-- **Failed writes** (disk full, permissions): the edit stays in memory, the save indicator turns red, a banner explains, and the write is retried every few seconds. Typing continues. Quitting with unsaved edits writes them to a recovery Markdown file and says where.
+- `PRAGMA quick_check` runs in the background after the first paint, so it never delays launch; its duration on large databases is measured in Phase 0. A failure switches the session to read-only at once, writes any uncommitted typing to a recovery Markdown file in the data directory, and offers to restore the latest good snapshot.
+- **Failed writes** (disk full, permissions): the edit stays in memory, the save indicator turns red, a banner explains, and the write is retried every few seconds. Typing continues. If the server exits with unsaved edits, it writes them to a recovery Markdown file, and the next launch says where.
 - **Never sync the live database** with Syncthing, Dropbox or similar; it can corrupt. The app warns if `outline.db` sits inside a known sync folder. Sync snapshots or exports instead.
 
 ### 8.2 History
@@ -764,7 +757,7 @@ Three layers protect the data, each against a different failure: history against
 CREATE TABLE change_sets (
   id          TEXT PRIMARY KEY,  -- random
   at          TEXT NOT NULL,     -- timestamp (§7.2)
-  source      TEXT NOT NULL,     -- 'tui', 'cli', 'editor', 'import', 'restore', 'agent:<name>'
+  source      TEXT NOT NULL,     -- 'ui', 'cli', 'editor', 'import', 'restore', 'agent:<name>'
   description TEXT,              -- e.g. 'Moved "Design notes"'
   undo_of     TEXT               -- change set this one undoes (§5.6)
 );
@@ -812,17 +805,17 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 
 ### 8.5 Snapshots
 
-- Taken with SQLite's online backup API: once a day when the outline has changed, and before every migration or restore. "Due" means the newest snapshot is more than 24 hours old; the TUI checks at launch, at quit and on its timer, and every CLI write checks too, so a TUI left open for days and a CLI-only outline both get snapshots.
+- Taken with SQLite's online backup API: once a day when the outline has changed, and before every migration or restore. "Due" means the newest snapshot is more than 24 hours old; the server checks at launch, at exit and on its timer, and every CLI write checks too, so a window left open for days and a CLI-only outline both get snapshots.
 - The last 14 are kept.
 - Each snapshot is checked with `PRAGMA quick_check` after it is written; one that fails is deleted and reported. "Latest good snapshot" means the newest that passed.
 - `hyphal snapshot list` lists them with their sizes; `hyphal snapshot restore <name>` restores one after snapshotting the current state first, so a restore is itself reversible.
-- A restore never renames files over the database (with `-wal` and `-shm` files present that can corrupt it). It copies the snapshot into the live database with the online backup API. It refuses while a TUI holds the lock (§8.6). When the TUI offers a restore itself (after a failed integrity check), it closes its other connections first and reopens afterwards.
+- A restore never renames files over the database (with `-wal` and `-shm` files present that can corrupt it). It copies the snapshot into the live database with the online backup API. It refuses while a server holds the lock (§8.6). When the UI offers a restore itself (after a failed integrity check), the server closes its other connections first and reopens afterwards.
 
-### 8.6 Locking
+### 8.6 Locking and tabs
 
-- One TUI per database, enforced with an exclusive `flock` on a lock file next to the database (`outline.db.lock`). It is not an SQLite lock, so CLI writers are never blocked by it, and the kernel releases it if the TUI dies.
-- A second TUI opens read-only with a banner. It still follows changes through `PRAGMA data_version`; typing in it changes nothing and shows a hint.
-- **Takeover** (Phase 2). The read-only TUI retries the lock on its `data_version` tick. Once the lock is free, its banner changes to "Editing is available · Enter to edit"; pressing Enter takes the lock and switches to normal editing. Nothing changes without that keypress.
+- One server per database, enforced with an exclusive `flock` on a lock file next to the database (`outline.db.lock`). It is not an SQLite lock, so CLI writers are never blocked by it, and the kernel releases it if the server dies. Running `hyphal` while a server holds the lock opens a window on that server (§9.3).
+- **One editing tab.** The first connected tab edits; any other tab opens read-only with a banner. It still follows changes live; typing in it changes nothing and shows a hint.
+- **Takeover.** When the editing tab closes, the oldest read-only tab becomes the editing tab with a message. From Phase 2, a read-only tab's banner also offers "Edit here", which swaps the roles. Nothing changes in a tab's content without that action.
 - The CLI and `hyphal capture` don't take the lock. They are ordinary writers with a 5-second busy timeout; past it they exit with a `busy` error code (§10.2). SQLite serializes the writes.
 
 ## 9. Implementation
@@ -832,17 +825,18 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 | Area | Choice | Notes |
 | --- | --- | --- |
 | Language | Go | Simple, fast to compile, one static binary; well suited to agent-driven development |
-| UI framework | Bubble Tea v2 (`charm.land/bubbletea/v2`) | Elm-style update/view loop; v2 brings kitty keyboard protocol support and the new renderer. Released; pin the latest v2 minor in Phase 0 |
-| Styling and layout | Lip Gloss v2 | Styles from the color tokens (§4.6); rendered rows cached per bullet |
-| Components | Bubbles v2 (viewport, list) | Palettes and page view. The outline editor and the page edit mode are custom, sharing one wrap-layout and cursor engine (§9.3); Bubbles' text area can't share it |
+| UI | Native web components, HTML, CSS, JavaScript (ES modules) | Light DOM (§4.4). No frontend library or framework without Thor's approval, and no build step: files are embedded with `go:embed` and served as written |
+| Browser features | `contenteditable="plaintext-only"`, CSS Custom Highlight API, `<dialog>`, Popover API, cascade layers, CSS nesting, `light-dark()`, custom properties, Async Clipboard, Selection API, `Intl.Segmenter`, WebSocket | Modern and native only. Anything without support in all three engines needs a fallback that keeps behavior correct |
+| Server | Go `net/http` + `github.com/coder/websocket` | Loopback only. One WebSocket per tab |
 | CLI | Cobra | Shared by quick capture, scripting and agents |
-| Database | Pure-Go SQLite driver (`modernc.org/sqlite` or `ncruces/go-sqlite3`) | No C toolchain, so cross-builds for Linux and macOS stay simple. Confirm the online backup API when choosing |
-| Text | `rivo/uniseg` | Grapheme segmentation and display width from one library, so the cursor and rendering never disagree on CJK and emoji |
-| Markdown | goldmark | Page rendering, with source positions for mode switching |
-| Syntax highlighting | chroma | Code blocks in page view, mapped to the ANSI colors |
-| Fuzzy matching | A Go fuzzy-finder library such as `sahilm/fuzzy` | Jump and command palettes |
+| Database | `modernc.org/sqlite` | Pure Go; no C toolchain, so cross-builds stay simple. Online backup API verified in P0-05 |
+| Text | `rivo/uniseg` | Grapheme boundaries in server-side text operations; the browser uses `Intl.Segmenter` |
+| Markdown | goldmark | Pages rendered to sanitized HTML on the server, with source positions for mode switching |
+| Syntax highlighting | chroma | Code blocks as CSS classes, colored by theme tokens |
+| Fuzzy matching | A Go fuzzy-finder library such as `sahilm/fuzzy` | Jump and command palettes, on the server |
 | Import / export | `encoding/json`, `encoding/xml`, small list parser | JSON, OPML, Markdown; the parser also serves the editor round trip |
-| Config | TOML (`BurntSushi/toml` or `pelletier/go-toml`) | Platform paths per §7.1 |
+| Config | TOML (`pelletier/go-toml/v2`) | Platform paths per §7.1 |
+| Browser tests | Playwright (development only, never shipped) | **Needs Thor's approval** (§12.3). Runs under Node, pinned in `mise.toml` |
 | Distribution | GoReleaser | Homebrew tap for macOS, AUR package for Arch and Omarchy |
 
 ### 9.2 Package architecture
@@ -850,9 +844,14 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 Both front ends share one core; only the database is authoritative.
 
 ```text
-┌──────────────────────────────┐      ┌──────────────────────────────┐
-│ tui                          │      │ cli                          │
-│ Bubble Tea + Lip Gloss       │      │ Cobra commands, JSON output  │
+┌──────────────────────────────┐
+│ Browser                      │
+│ Web components, CSS themes   │
+└──────────────┬───────────────┘
+               │ WebSocket + HTTP (loopback)
+┌──────────────▼───────────────┐      ┌──────────────────────────────┐
+│ server + web (embedded)      │      │ cli                          │
+│ Sessions, protocol, auth     │      │ Cobra commands, JSON output  │
 └──────────────┬───────────────┘      └───────────────┬──────────────┘
                │ commands                             │ same operations
 ┌──────────────▼──────────────────────────────────────▼──────────────┐
@@ -873,27 +872,31 @@ Both front ends share one core; only the database is authoritative.
 └────────────────────┘  └────────────────────┘  └────────────────────┘
 ```
 
-Four Go packages (`tui`, `cli`, `core`, `store`) and three kinds of on-disk data.
+Four Go layers (`server`, `cli`, `core`, `store`), one browser client (`web`), and three kinds of on-disk data.
 
-The TUI and CLI never touch the database directly; only `store` does. That keeps storage replaceable without rewriting either front end.
+The server and CLI never touch the database directly; only `store` does. The browser never touches anything but the server's protocol, and holds no rules about the outline.
 
 ### 9.3 Runtime model
 
-- The TUI follows Bubble Tea's model–update–view loop. Key presses, change notifications and timers are all messages; the model owns the in-memory tree.
-- Slow work (database commits, snapshots, exports, the `data_version` poll) runs as Bubble Tea commands off the UI loop and reports back as messages. The view never waits on disk.
-- A tick about every 500 ms checks `PRAGMA data_version` and reports changes made by other connections, such as the CLI.
-- The view renders only the visible rows from a flattened list of visible nodes. Each row's styled output is cached and rebuilt only when that bullet, its focus state or the theme changes, which keeps Lip Gloss styling cost flat.
-- Wrapping is computed by our own layout function, shared by rendering and cursor movement so they never disagree.
+- **Who owns what.** Go owns the tree, every rule in §5, undo, search, selection state and the keymap's definition. The browser owns the DOM, focus, the caret, scroll position, overlays, and typing inside the focused bullet. Rule logic is never duplicated in JavaScript.
+- **Typing is local, structure is a round trip.** Typing updates the focused bullet's DOM at once and sends its text to the server, so it never waits for a reply. A structural key (Enter, Tab, Backspace at an edge and so on) sends an action and waits for the state reply. Keys pressed while a reply is pending are queued and replayed in order, so fast typing across Enter can't land on the wrong row. The spike verified this model.
+- **Rendering.** Only a window of rows around the viewport is in the DOM. Each state reply carries that window; rows are reused by node ID so the focused element survives updates. The focused bullet is `contenteditable="plaintext-only"` and shows its source text; marker dimming and filter matches on it use the CSS Custom Highlight API with ranges from the server, so editing never touches the text nodes. All other rows render styled spans from the server's parsed runs, built with DOM APIs and never with `innerHTML`.
+- **Slow work** (commits, reloads, snapshots, exports, the `data_version` poll) runs on server goroutines off the request path. Commits and reloads go through one FIFO worker.
+- **Lifecycle.** `hyphal` takes the lock and starts a detached `hyphal serve`, or finds the running one through a `0600` state file in the runtime directory, and then opens a window. The server exits 10 seconds after its last tab closes, which covers reloads. `hyphal serve` runs in the foreground for debugging.
+- **Security.** The server binds only `127.0.0.1`, on a random port. Every request must carry a correct `Host` and, for WebSocket and writes, `Origin`, which blocks DNS rebinding and cross-site WebSockets. A launch opens a URL holding a single-use ticket, exchanged at once for an `HttpOnly`, `SameSite=Strict` session cookie and removed from the address bar, so the process list never holds a usable secret. Pages are served with a Content Security Policy allowing only same-origin resources and no inline scripts. Page Markdown is rendered with raw HTML disabled, and links allow only `http`, `https`, `mailto` and node links.
+- **Reconnect.** The page reconnects automatically after a dropped socket (a restarted server, a sleep/wake), resends unacknowledged typing, and asks for fresh state. If the server has exited, reopening needs `hyphal`.
 
 ### 9.4 Performance targets
 
 | Measure | Target | Workload |
 | --- | --- | --- |
-| Cold launch to first frame | < 100 ms | 10,000 nodes; the integrity check runs after the first frame (§8.1) |
-| Keypress to frame | < 16 ms | Same, typing in a deep node |
-| One action committed (state + history) | < 5 ms on Linux | Same. On macOS, real durability needs `PRAGMA fullfsync`, often 5–20 ms; commits run off the UI loop, so this never delays a frame |
+| `hyphal` to first paint, browser already running | < 100 ms | 10,000 nodes; the integrity check runs after the first paint (§8.1) |
+| `hyphal` to first paint, browser not running | Measured, no hard target | Depends on the browser; the spike saw 130 ms headless to over 1 s |
+| Keypress to frame, typing | < 16 ms | Same, typing in a deep node |
+| Enter or Tab, keypress to frame | < 33 ms p95 | Same; includes the round trip |
+| One action committed (state + history) | < 5 ms on Linux | Same. On macOS, real durability needs `PRAGMA fullfsync`, often 5–20 ms; commits run on the worker, so this never delays a reply |
 | In-place filter update | < 50 ms per keystroke | 100,000 nodes |
-| CLI change visible in a running TUI | < 1 s | Any |
+| CLI change visible in an open tab | < 1 s | Any |
 
 Targets are checked with generated databases: as absolute numbers on fixed benchmark hardware, and in CI only as regressions against a stored baseline, because shared runners are too noisy for absolute thresholds.
 
@@ -906,8 +909,11 @@ Targets are checked with generated databases: as absolute numbers on fixed bench
 - **Editor round trip:** scripted edits to the temp file (rename, reorder, delete, add, malformed lines) apply exactly as expected, or not at all.
 - **Import tests:** real Workflowy OPML and Markdown exports from Logseq and Obsidian import without loss.
 - **Parser fuzzing** with Go's built-in fuzzing for the inline-markup parser, the list importer and OPML.
-- **UI tests:** Bubble Tea's `teatest` drives scripted key sequences and compares the rendered screen with golden files.
-- **Interaction matrix:** scripted keystroke tests for every row of the Enter, Backspace and Delete tables (§5.2–5.3a) and every binding in §6.4.
+- **Session tests:** Go tests drive a server session through the protocol without a browser: actions in, rows, cursor and messages out.
+- **Browser tests:** Playwright drives real keystrokes in Chromium, Firefox and WebKit, on Linux and macOS.
+- **Interaction matrix:** browser tests for every row of the Enter, Backspace and Delete tables (§5.2–5.3a) and every binding in §6.4.
+- **Screen references:** ARIA snapshots as text goldens for structure, plus screenshots on Linux Chromium for review only.
+- **Theme checks:** no raw values outside token files, AA contrast for bundled themes, and every token used.
 - **CLI tests:** every command's `--json` output is checked against golden files.
 
 ### 9.6 Built by agents
@@ -915,10 +921,10 @@ Targets are checked with generated databases: as absolute numbers on fixed bench
 The app will be built entirely by AI coding agents, working from a phased implementation plan derived from this spec. The spec and repository follow rules that make that reliable:
 
 - **Acceptance criteria per feature,** written as observable behavior ("Backspace on an empty bullet with children does nothing and shows a hint"), each mapped to at least one automated test.
-- **No manual verification steps.** Every behavior is checkable by `go test`: UI through `teatest` golden screens, data through the CLI's `--json` output, safety through crash and round-trip tests. The human checkpoints are listed explicitly and are not acceptance criteria for agents: the visual "calm" reviews (§4.6), the hands-on keymap matrix in real terminals (§6.4), the comparison-set evaluation (§3), and the Phase 1 week of daily use (§11).
+- **No manual verification steps.** Every behavior is checkable automatically: rules through `go test`, UI through browser tests, data through the CLI's `--json` output, safety through crash and round-trip tests. The human checkpoints are listed explicitly and are not acceptance criteria for agents: visual review (§4.6), the hands-on key matrix (§6.4), real `$EDITOR` terminals (§6.3), the comparison-set evaluation (§3), and the Phase 1 week of daily use (§11).
 - **The CLI is the agents' test harness.** Agents create outlines, run commands and inspect results through the same CLI users get (§10.2), which is why it ships in Phase 1.
-- **One package per task where possible.** The plan hands agents work along package boundaries (`core`, `store`, `tui`, `cli`) with stable interfaces between them.
-- **Golden files are reviewed, not regenerated blindly.** A changed golden screen must be explained in the change description.
+- **One package per task where possible.** The plan hands agents work along package boundaries (`core`, `store`, `server`, `web`, `cli`) with stable interfaces between them.
+- **Golden files are reviewed, not regenerated blindly.** A changed golden must be explained in the commit message.
 - **Stable section numbers** in this spec are referenced from the plan, tests and commit messages.
 
 ## 10. Obsidian-inspired features and the CLI
@@ -927,7 +933,7 @@ The app will be built entirely by AI coding agents, working from a phased implem
 
 Obsidian's best ideas apply here to nodes rather than files.
 
-- **Node links (Phase 2):** type `[[` to search and link to any bullet. Links are stored by node ID, so they survive moves and renames, and they display the target's current text. `o` in block selection (or a click) zooms to its target. Markdown export writes Obsidian-style links.
+- **Node links (Phase 2):** type `[[` to search and link to any bullet. Links are stored by node ID, so they survive moves and renames, and they display the target's current text. `o` in block selection (or a click) zooms to its target. Links render as real anchors to `/#/<id>`. Markdown export writes Obsidian-style links.
 - **Backlinks (Phase 3):** an on-demand floating overlay listing every bullet that links to the current node, each with its breadcrumb.
 - **Saved searches (Phase 3):** "Save search" in the command palette stores the current filter query under a name (`Open bugs` = `#bug is:open`). Saved searches are listed in the jump palette next to starred locations; choosing one opens the filter with that query. They are stored in their own small table and included in JSON export.
 - **Templates (Phase 3):** any subtree tagged `#template` can be instantiated under the current node with one command, from the command palette.
@@ -935,13 +941,15 @@ Obsidian's best ideas apply here to nodes rather than files.
 
 ### 10.2 CLI and agent interface
 
-A robust CLI ships in **Phase 1**, for users, scripts and AI agents alike. It is a thin layer over the same `core` operations as the TUI, and it doubles as the build agents' test harness (§9.6). Phase 4 adds `forget`, batch `apply` and agent conveniences on top.
+A robust CLI ships in **Phase 1**, for users, scripts and AI agents alike. It is a thin layer over the same `core` operations as the UI, and it doubles as the build agents' test harness (§9.6). Phase 4 adds `forget`, batch `apply` and agent conveniences on top.
 
 Every `<node>` argument accepts an ID or a path.
 
 ```bash
+hyphal                      # start the server if needed and open a window (§9.3)
+hyphal serve [--dev]        # run the server in the foreground
 hyphal add "Fix tooltip positioning" [--under <node>] [--after <node> | --before <node>]
-hyphal capture [--window]             # one-line capture prompt (§4.7)
+hyphal capture [--window]   # one-line capture prompt (§4.7)
 hyphal show <node> [--depth N] --json
 hyphal tree [--root <node>] --json
 hyphal search "tooltip #bug is:open" --json
@@ -974,7 +982,7 @@ hyphal paths
 - **Exit statuses:** 0 success, 1 other error, 2 usage error, 3 `not_found` or `ambiguous`, 4 `conflict` (`--if-version` mismatch), 5 `busy` (locked past the 5-second busy timeout, §8.6), 6 `read_only` (the database has a newer schema than this version knows).
 - Every write is one change set tagged with its source: `cli` by default, `--source agent:<name>` for agents, so their changes can be reviewed and reverted as a unit. The source is self-declared: it is for attribution, not a security boundary.
 - `hyphal apply` (Phase 4) lets an agent submit a batch of operations atomically; either all apply or none do.
-- Writes are safe while the TUI is open; the TUI picks them up within a second (§7.3).
+- Writes are safe while a window is open; it picks them up within a second (§7.3).
 - The database is always explicit: `--db`, then the `HYPHAL_DB` environment variable, then the config default.
 - **Phase 4:** `forget`, `apply`, a shipped usage guide for agents, and richer query output. There is no MCP server: agents drive the CLI directly.
 
@@ -986,9 +994,9 @@ Six phases, each with an exit gate:
 
 | Phase | Scope | Exit gate |
 |---|---|---|
-| **0 · Storage and editing spike** | Schema, history, JSON round trip; wrap layout, keymap matrix | Export and import are identical; a crash loses at most the unsealed typing |
-| **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages, formatting; theme matching, palettes, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side calm review passes |
-| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; jump palette, history, mouse, page edit mode; scheduled export, capture window, read-only takeover | Every *Must* row of the parity checklist works |
+| **0 · Storage and browser foundations** | Schema, history, JSON round trip; server skeleton, protocol, outline component, key matrix | Export and import are identical; a crash loses at most the unsealed typing; the outline skeleton passes in all three engines |
+| **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages with the built-in editor, formatting; theming, palettes, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side visual review passes |
+| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; jump palette, history, page mode sync and split view; scheduled export, capture window, Edit here takeover | Every *Must* row of the parity checklist works |
 | **3 · Obsidian-inspired features** | Backlinks, saved searches, templates | Backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs |
 | **4 · Agent integration** | Batch `apply`, `forget`, agent usage guide, richer queries | An agent completes a scripted multi-step task with `apply` and the usage guide, and one `hyphal revert` undoes it as a unit |
 | **5 · Multi-device sync** | Device IDs, HLC merge, per-device logs, compaction; any-folder sync (iCloud Drive, Syncthing) | Two machines edit offline and converge with nothing lost |
@@ -1009,11 +1017,13 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 - No mirrors (one bullet shown live in two places). Every node has exactly one parent; links, tags and saved searches cover the need.
 - No daily journal or Today node, and no page-based model: everything lives in the one tree, and a page (§5.7) is an optional attachment to a bullet.
 - No Vim-style modal editing or Vim motions.
+- No terminal UI. Versions up to v3 specified one; the CLI remains.
 - No accounts, subscription, cloud backend or database server.
 - No rich-text or WYSIWYG editing; formatting is Markdown-style markup, rendered with concealment.
 - No real-time multi-writer collaboration.
 - No full Obsidian replacement, graph view or plugin system in V1.
 - No Windows support.
+- No hosted version, remote access or phone access to the local server. The server is loopback only.
 - No iPhone or Android app in this project; a phone app is a separate follow-up (§11).
 
 ### 12.2 Resolved decisions
@@ -1031,24 +1041,24 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 9 | Formatting | Markdown-style markers, concealed when not editing | §5.8 |
 | 10 | Text color | `<red>text</red>` with theme-mapped color names; `==highlight==` | §5.8 |
 | 11 | Tags | `#tag` with nested `/` tags; no `@person` | §5.9 |
-| 12 | Theme | The terminal's 16 ANSI colors only; no theme files read; OSC 11 for light or dark | §4.4 |
+| 12 | Theme | CSS custom-property tokens in cascade layers; a theme is one CSS file; light DOM; Omarchy's `colors.toml` followed live when present | §4.4 |
 | 13 | Tasks | `is_task` plus `completed_at`; exported as checkboxes | §7.2 |
 | 14 | Search | In-memory substring scan, no index; filter in P1, jump palette and operators in P2 | §6.2 |
 | 15 | External editing | Temp-file round trip only | §6.3 |
 | 16 | Configuration | XDG paths, TOML, explicit `--db` | §7.1 |
 | 17 | Long-form content | Bullets stay one line; an optional Markdown page per bullet, opened with page zoom. Replaces notes | §5.7 |
-| 18 | Language and UI stack | Go with Bubble Tea, Lip Gloss and Bubbles; pure-Go SQLite | §9.1 |
+| 18 | Language and UI stack | Go server with native web components, HTML, CSS and JS; no frontend libraries without approval; no build step; pure-Go SQLite | §9.1 |
 | 19 | Platforms | Linux (Omarchy first) and macOS; no Windows | §6.4, §7.1 |
 | 20 | Sync | Nothing sync-specific before Phase 5; then per-device logs in a shared folder, no server | §7.6 |
 | 21 | CLI | Full CLI with JSON output in Phase 1; batch `apply` and `forget` in Phase 4; no MCP server | §10.2 |
 | 22 | Builders | Built entirely by AI agents from a phased plan; every behavior has an automated test | §9.6 |
 | 23 | App name | Only in user-facing places; never in schema, ops, sync log or JSON fields | §1 |
 | 24 | Root and Inbox | A fixed Home root; a top-level Inbox found by ID | §4.1, §6.3 |
-| 25 | Keymap | One authoritative table per context; every everyday bullet command has a block-selection key, rare ones are palette-only; no Alt commands; same keys on Linux and macOS; Esc never zooms out; typing never leaves block selection | §6.4 |
+| 25 | Keymap | One authoritative table per context; every everyday bullet command has a block-selection key, rare ones are palette-only; no browser-reserved keys; `Ctrl` means Cmd on macOS, native text keys stay native; Esc never zooms out; typing never leaves block selection | §6.4 |
 | 26 | Overlays | Backlinks and palettes are floating overlays; no side panes | §4.7 |
-| 27 | Undo scope | Per-session stack of TUI-started changes, including `$EDITOR` round trips; CLI and agent changes are reverted | §5.6 |
+| 27 | Undo scope | Per-session stack of UI-started changes, including `$EDITOR` round trips; CLI and agent changes are reverted | §5.6 |
 | 28 | Identity | Split keeps the ID on the first half; merges keep the earlier bullet and retarget stars and links | §5.2–5.3a |
-| 29 | Concurrency | Per-node versions; TUI typing is never dropped; `--if-version` for agents | §7.3 |
+| 29 | Concurrency | Per-node versions; UI typing is never dropped; `--if-version` for agents | §7.3 |
 | 30 | Trash restore | Per deletion, to the original position, else the nearest surviving ancestor | §8.3 |
 | 31 | History policy | Append-only, ops written once when sealed; no compaction; manual purge | §8.2, §8.4 |
 | 32 | Sync moves | Moves carry parent and position together; a proven tree-move algorithm in Phase 5 | §7.6 |
@@ -1063,14 +1073,31 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 41 | Markdown export layout | One `outline.md` plus `pages/` by default; `--split` for one file per top-level node | §7.5 |
 | 42 | Feedback | No toasts: one footer row shows a message (until the next key), the filter query, or key hints | §4.5 |
 | 43 | Leading markers | `[ ] `, `[x] ` and `## ` at the start of a bullet always convert, so the dialect needs no escapes | §5.4, §7.5 |
-| 44 | Clipboard | Local platform tool first; OSC 52 over SSH or when no tool exists | §5.5 |
+| 44 | Clipboard | Async Clipboard API for copy; the `paste` event for paste, so the app never reads the clipboard on its own | §5.5 |
 | 45 | Name | Hyphal; `hyphal` for the binary, directories, window class and `HYPHAL_DB` | §1 |
 | 46 | Simplification pass | Cut: sync groundwork before Phase 5, Omarchy theme files, Nerd Font glyphs, history compaction, hourly snapshots, properties, saved-query virtual children, MCP server, OPML formatting export, desktop notifications, persistent undo, FTS5, `node_tags`, in-place history rows, incremental reload | §4–§11 |
-| 47 | Chords | Text-editing chords limited to the Workflowy core; Ctrl+Enter is the only kitty-only key; Alt only for word editing | §6.4 |
+| 47 | Chords | Text-editing chords limited to the Workflowy core; native text keys stay native on each platform | §6.4 |
+| 48 | Platform | Local web app: one Go binary serving the UI on loopback, replacing the terminal UI | §1, §9 |
+| 49 | Ownership | Go owns every rule and the undo stack; the browser owns DOM, focus, caret and typing in the focused bullet | §9.3 |
+| 50 | Tabs | One server per database; one editing tab; others read-only, and the oldest takes over when the editor closes | §8.6 |
+| 51 | Local security | Loopback only, `Host` and `Origin` checks, single-use launch ticket, `HttpOnly` cookie, strict CSP, Markdown without raw HTML | §9.3 |
+| 52 | Zoom addresses | Each zoom has a URL; browser Back and Forward move through zooms | §4.1 |
+| 53 | Page editor | Built-in editor moves to Phase 1, since the browser makes it cheap; position sync and split view stay in Phase 2 | §5.7 |
+| 54 | Mouse | Clicks and scrolling move to Phase 1 | §6.5 |
+| 55 | Cut features | Glyph ASCII fallbacks, terminal matrix, kitty, tmux, OSC sequences, Bubble Tea stack, wrap-layout engine, `zoom_transition`, `glyphs`, `background`, `mouse` settings | §4, §6.4, §13 |
 
 ### 12.3 Still open
 
-- **Color palette size.** Eight named colors is the starting set; confirm against Omarchy themes that each stays legible on light and dark backgrounds.
+**To settle before implementation resumes:**
+
+- **Design style.** Thor and the implementers agree the overall look after this spec is reviewed: typography, density, color, glyphs, motion, how far "calm page" carries over. The outcome updates §4.3, §4.6 and the default tokens.
+- **Approve Playwright.** It is a development-only test tool, not part of the UI, but it is an external dependency with a Node toolchain (§9.1). Without it, browser tests would need another driver.
+- **Spike checks not yet run by hand.** The real key matrix, real IME use, and the real `$EDITOR` terminal behavior (`plan/reports/p0-w1-web-ui.md`). The Phase 0 human cards cover them.
+- **Drag-to-move.** The terminal version ruled it out because of the medium. Workflowy has it, and native drag and drop could do it. Decide whether it becomes a Phase 2 row.
+
+**Other open items:**
+
+- **Color palette size.** Eight named colors is the starting set; confirm each stays legible on light and dark themes, including Omarchy's.
 - **History growth.** History is kept in full; measure real growth in Phase 0 and add a retention default only if it is needed.
 - **Sync details** (Phase 5, §7.6): HLC drift handling, log compaction thresholds, and whether page text later merges line by line.
 
@@ -1079,7 +1106,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 - **Phase 2**
   - *Tags (§5.9):* how `#` is told apart from Markdown headings in pages, issue numbers (`#123`), `C#`, URL fragments and code; Unicode letters; numeric-only tags; a trailing `/`; display case versus stored lowercase; a rename command; colors repeating with only eight palette colors.
   - *Node links (§10.1):* the stored form of `[[…]]` and how it stays readable in a SQLite browser; Obsidian export (links target files, not nodes); links to trashed or purged nodes; the format of Copy link to node.
-  - *Screens:* History view, Stars view, tag list, jump palette result rows; mouse details.
+  - *Screens:* History view, Stars view, tag list, jump palette result rows.
 - **Phase 3**
   - *Templates:* stripping `#template` from instances; variables such as the date.
 - **Phase 5**
@@ -1087,14 +1114,12 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 
 ### 12.4 Immediate next steps
 
-1. **Schema spike:** nodes, pages, history and typing coalescing in Go with the chosen SQLite driver. Simulate a week of heavy editing and measure database growth.
-2. **Safety tests:** the JSON export round trip, crash injection during typing, and snapshot restore on a clean machine.
-3. **Wrap-layout and rendering prototype:** one Bubble Tea outline view with grapheme-aware cursor movement, concealed inline formatting, and the centered reading column.
-4. **Reference mockups:** the five screens listed in §4.6, reviewed side by side with Workflowy and with lazygit and btop under three Omarchy themes, one of them light.
-5. **Keymap matrix:** record which bindings arrive in each terminal, bare and in tmux, before finalizing §6.4, including how Option+Left/Right/Backspace and Cmd+Left/Right arrive on macOS and that macOS leaves Ctrl+Shift+Up/Down alone.
+1. **Review this spec and the plan** together, then hold the design talk (§12.3).
+2. **Finish the storage foundations:** schema, commit with history, typing coalescing, the JSON round trip and crash injection (Phase 0 cards).
+3. **Web skeleton:** server, protocol and the outline web component, replacing `internal/webspike`.
+4. **Reference screens:** the five screens listed in §4.6, reviewed side by side with Workflowy under three themes, one of them light.
+5. **Key matrix and `$EDITOR`:** record which bindings arrive in each browser and window type (§6.4), and how each terminal behaves (§6.3).
 6. **Workflowy import:** run a real Workflowy OPML export through the importer and list anything lost, including how mirrors appear and whether they can be detected.
-7. **Stack checks:** confirm Bubble Tea v2's keyboard-protocol support in the terminal matrix and that `teatest` (or a v2 equivalent) works with v2, and choose the pure-Go SQLite driver after verifying the online backup API; measure fuzzy matching and the in-memory filter over 100,000 nodes, and the time a CLI call takes to load the tree for `hyphal search` and path lookups.
-8. **Implementation plan:** turn this spec into the phased, agent-ready plan, with acceptance criteria per feature (§9.6).
 
 ## 13. Configuration reference
 
@@ -1103,16 +1128,14 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | Key | Default | Meaning | Section |
 | --- | --- | --- | --- |
 | `db` | `<data dir>/outline.db` | Default database | §7.1 |
-| `column_width` | `90` | Reading column cap, in columns | §4.6 |
+| `theme` | `"auto"` | `auto` (Omarchy if present, else follows the system), `light`, `dark`, or a file name in `themes/` | §4.4 |
+| `browser` | `"auto"` | `auto` (app window on a Chromium-family browser, else the default browser), or a command template with `{url}` | §4.7 |
+| `column_width` | `90` | Reading column cap, in characters | §4.6 |
 | `density` | `"comfortable"` | `comfortable` or `compact` | §4.6 |
-| `indent_guides` | `false` | Faint `│` guides | §4.3 |
-| `glyphs` | `"auto"` | `auto` (Unicode unless the locale isn't UTF-8), `unicode` or `ascii` | §4.6 |
-| `background` | `"auto"` | `auto` (ask the terminal), `light` or `dark` | §4.4 |
+| `indent_guides` | `false` | Faint indent guides | §4.3 |
 | `footer` | `true` | Footer key hints | §4.5 |
-| `split_view_min_width` | `0` (off) | Open pages in split view at or above this width | §5.7 |
-| `zoom_transition` | `false` | Brief zoom animation | §4.6 |
+| `split_view_min_width` | `0` (off) | Open pages in split view at or above this window width, in CSS pixels | §5.7 |
 | `[tag_colors]` | — | Per-tag color overrides | §5.9 |
-| `mouse` | `true` | Mouse capture (Phase 2) | §6.5 |
 | `[keys.<context>]` | — | Key overrides per context | §6.4 |
 | `trash_days` | `30` | Days before the Trash purges | §8.3 |
 | `snapshots.keep` | `14` | Daily snapshots kept | §8.5 |
@@ -1120,6 +1143,6 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | `export.when` | `"daily"` | `daily` or `quit` | §7.5 |
 | `export.dir` | `<data dir>/exports` | Scheduled export folder | §7.5 |
 | `export.keep` | `10` | Scheduled exports kept | §7.5 |
-| `capture.terminal` | Omarchy default terminal via `xdg-terminal-exec` | Command template for `hyphal capture --window` | §4.7 |
+| `editor.command` | Runs `$EDITOR` in a new terminal via `xdg-terminal-exec` (Linux) or Terminal.app (macOS) | Command template for the `$EDITOR` round trip | §6.3 |
 
 - **Invalid config:** at launch, invalid keys fall back to their defaults and a banner names the file and line. On reload after "Edit settings", an invalid file is ignored entirely: the previous config stays in effect, with the same banner. Unknown keys produce a warning, not an error.

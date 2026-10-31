@@ -18,12 +18,12 @@ Type: decision · Spec: §10.2 ("richer query output"), §11 row 4
 The spec doesn't define it. Proposal `plan/proposals/p4-01-queries.md` with options, for example: `show`/`tree`/`search` flags `--fields`, `--with-pages`, `--with-breadcrumbs`, `--format ndjson`, `--since <change-set>` (changes since a point, for agents that poll), `hyphal diff <cs1> <cs2>`, `--limit/--cursor` pagination. Recommend a minimal set. Stop for the human.
 
 ### P4-02 · `hyphal apply`
-Type: impl · Packages: `internal/core`, `internal/cli` · Spec: §10.2 (`ops.json`, `apply`) · Human review: yes (CLI contract)
+Type: impl · Packages: `internal/core`, `internal/cli` · Spec: §10.2 (`ops.json`, `apply`)
 Deliverables:
 - `ops.json`: JSON array of `{"op": "<name>", ...args}` where names and args mirror the CLI commands (`add`, `edit`, `set`, `move`, `complete`, `reopen`, `delete`, `star`, `unstar`, `page_set`, `page_delete`, `restore`), node references as in CONTRACTS §7.3, plus `"ref": "<temp name>"` on `add` and `"$ref:<temp name>"` usable wherever a node reference is accepted, plus optional `"if_version"`.
 - All ops are planned against an evolving in-memory tree and committed as **one change set** (source from `--source`), atomically: any error → nothing applied, error envelope names the failing op index.
 - `hyphal apply --schema` prints a JSON Schema (draft 2020-12) generated from Go types (keep the schema in `internal/cli/schema/ops.schema.json`, with a test that it matches the types).
-- `--dry-run` prints the planned ops without committing (propose in the PR; useful for agents).
+- `--dry-run` prints the planned ops without committing (ask Thor; useful for agents).
 Acceptance criteria:
 - AC1 A 10-op batch with refs applies as one change set → `TestApply_Batch`.
 - AC2 Any failing op → nothing applied, error has `index` → `TestApply_Atomic`.
@@ -31,8 +31,8 @@ Acceptance criteria:
 - AC4 `if_version` mismatch → `conflict`, exit 4 → `TestApply_Conflict`.
 
 ### P4-03 · Forget
-Type: impl · Packages: `internal/store`, `internal/core`, `internal/cli`, `internal/tui` · Spec: §8.4 (Forget) · Human review: yes (history erasure)
-Deliverables: `store.Forget(deletion)`: in one transaction erase the deletion's subtree (plus earlier-trashed descendants, §8.3) from `nodes`, `pages`, `stars`, `view_state`, **and** every `ops` row mentioning those node IDs (change sets left with no ops stay, with their descriptions), then record a change set with no ops whose description says what was forgotten without its content (§8.4): `Forgot a deletion of N bullets`. CLI `hyphal forget <id> --yes` (without `--yes`: usage error naming it); output notes that snapshots still contain the data until they rotate out. TUI: palette command "Forget…" in the Trash view on the selected entry, with a confirmation naming the snapshot caveat.
+Type: impl · Packages: `internal/store`, `internal/core`, `internal/cli`, `internal/server`, `internal/web` · Spec: §8.4 (Forget)
+Deliverables: `store.Forget(deletion)`: in one transaction erase the deletion's subtree (plus earlier-trashed descendants, §8.3) from `nodes`, `pages`, `stars`, `view_state`, **and** every `ops` row mentioning those node IDs (change sets left with no ops stay, with their descriptions), then record a change set with no ops whose description says what was forgotten without its content (§8.4): `Forgot a deletion of N bullets`. CLI `hyphal forget <id> --yes` (without `--yes`: usage error naming it); output notes that snapshots still contain the data until they rotate out. UI: palette command "Forget…" in the Trash view on the selected entry, with a confirmation naming the snapshot caveat.
 Acceptance criteria:
 - AC1 After forget, no row in any table contains the node IDs or texts → `TestForget_Erases` (full-DB text scan).
 - AC2 The forget change set has no ops and no content → `TestForget_ChangeSet`.

@@ -1,10 +1,10 @@
 # Contracts
 
-Formats and names that several packages, tests or external users depend on. Changing anything here requires a PR with `Human review: yes`.
+Formats and names that several packages, tests or external users depend on. Changing anything here needs Thor's approval first.
 
 ## 1. App name placement (§1)
 
-`hyphal` / `Hyphal` may appear only in: the binary name, data/config/runtime directory names, the `.desktop` file and window class (`hyphal`, capture window class `hyphal-capture`), the env vars `HYPHAL_DB` and `HYPHAL_DEBUG_LOG`, the export header (JSON `format` and `exported_by`, OPML `<head>`, Markdown first-line comment), CLI help text and docs. **Never** in table or column names, `meta` keys or values (except `exported_by` in exports), op kinds, JSON field names, or the sync format.
+`hyphal` / `Hyphal` may appear only in: the binary name, data/config/runtime directory names, the `.desktop` file and window class (`hyphal`, capture window class `hyphal-capture`), the env vars `HYPHAL_DB` and `HYPHAL_DEBUG_LOG`, the export header (JSON `format` and `exported_by`, OPML `<head>`, Markdown first-line comment), CLI help text and docs, and UI code (page title, custom element tag names, `/keyprobe`). **Never** in table or column names, `meta` keys or values (except `exported_by` in exports), op kinds, JSON field names, the UI protocol (§12), or the sync format.
 
 ## 2. IDs (§7.2)
 
@@ -47,7 +47,7 @@ CREATE TABLE ops (... as §8.2 ...);
 | `format_id` | `"tree-outline"` (neutral, D-005) |
 | `root_id` | root node ID |
 | `inbox_id` | Inbox node ID, absent until first capture |
-| `tui_opened` | `"1"` once the TUI has opened this DB (§4.5) |
+| `ui_opened` | `"1"` once the UI has opened this DB (§4.5) |
 | `description` | One paragraph explaining the tables (text in P0-06) |
 | `last_snapshot_at` | timestamp of the newest good snapshot |
 | `last_trash_purge_at` | timestamp of the last automatic purge (D-016) |
@@ -94,7 +94,7 @@ Row rules enforced by `store.Commit`:
   "schema_version": 1,
   "exported_by": "hyphal 0.3.0",
   "exported_at": "2026-10-24T18:00:00.000Z",
-  "meta": { "root_id": "…", "inbox_id": "…", "tui_opened": "1", "format_id": "tree-outline" },
+  "meta": { "root_id": "…", "inbox_id": "…", "ui_opened": "1", "format_id": "tree-outline" },
   "nodes":      [ { "id","parent_id","position","text","is_task","is_heading","completed_at",
                     "created_at","updated_at","version","deleted_at","deleted_by" } ],
   "pages":      [ { "node_id","markdown","updated_at","version" } ],
@@ -138,7 +138,7 @@ Row rules enforced by `store.Commit`:
 | `invalid` | 1 | operation violates a rule (move under own descendant, edit root, text with newline) |
 | `not_empty` | 1 | JSON import into a non-empty DB without `--replace` |
 | `parse_error` | 1 | import/page file cannot be parsed |
-| `tui_running` | 1 | `snapshot restore` while a TUI holds the lock |
+| `server_running` | 1 | `snapshot restore` while a server holds the lock |
 | `integrity` | 1 | `check` found problems (data lists them) |
 | `io` | 1 | filesystem errors |
 | `internal` | 1 | anything else |
@@ -194,6 +194,8 @@ Human-readable output is not a contract (but has goldens).
 | Lock | `<db path>.lock` | 0600 |
 | Snapshots | `<dir of db>/snapshots/<dbname>-<YYYYMMDDTHHMMSSZ>-<reason>.db`, reason ∈ `daily`, `pre-migration`, `pre-restore`, `pre-import` (D-014) | 0600 |
 | Recovery files | `<data>/recovery/<dbname>-<YYYYMMDDTHHMMSSZ>.md` (dialect with `^id`s) | 0600 |
+| Server state | `${XDG_RUNTIME_DIR}/hyphal/` else `<data>/tmp/`, file `server-<sha256 of db path, 16 hex>.json`: `{"port","secret","pid","version"}` (D-041) | 0600 |
+| Themes | `${XDG_CONFIG_HOME:-~/.config}/hyphal/themes/*.css`, `user.css` | user's |
 | Editor temp | `${XDG_RUNTIME_DIR}/hyphal/` else `<data>/tmp/` (dir 0700), file `edit-<random>.md` | 0600 |
 | Exports | `<data>/exports/` default for scheduled export | 0600 files |
 | Config | `${XDG_CONFIG_HOME:-~/.config}/hyphal/config.toml` (both OSes) | user's |
@@ -207,7 +209,7 @@ Human-readable output is not a contract (but has goldens).
 
 ## 11. Test notation (outline fixtures)
 
-Used by core rule tests (as external `core_test` packages) and by `tuitest` (TESTING.md §3). The parser lives in `internal/testgen`, which may import `core` and `store` and is imported only from tests.
+Used by core rule tests (as external `core_test` packages) and by `servertest` and `e2e` (TESTING §3). The parser lives in `internal/testgen`, which may import `core` and `store` and is imported only from tests.
 
 ```text
 - Projects {zoom}
@@ -224,3 +226,71 @@ Used by core rule tests (as external `core_test` packages) and by `tuitest` (TES
 - `‸` marks the text cursor (byte offset in the stored text at that point); `⟦`…`⟧` marks a text selection, with the cursor at `⟧` unless `‸` appears.
 - Root children are top-level lines. `{zoom}` on a line zooms to it; otherwise zoom is Home.
 - Parsing: `testgen.ParseOutline(s) (*Fixture, error)`; rendering back for assertions: `testgen.FormatOutline(tree, state) string`. Assertions compare normalized notation strings.
+
+## 12. UI protocol (§9.3)
+
+JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names are neutral. Offsets are UTF-16 code units, the unit the browser reports; `core` converts. The protocol is internal to one binary and carries no compatibility promise across versions: `hello` compares `version`, and a mismatch makes the page reload.
+
+### 12.1 Client → server
+
+```json
+{"t":"hello","version":"…","zoom":"<id>|null"}
+{"t":"text","seq":12,"id":"<id>","text":"…","off":5}
+{"t":"action","seq":7,"name":"enter","off":5,"end":5}
+{"t":"action","seq":8,"name":"move","dir":-1}
+{"t":"window","start":400,"count":200}
+{"t":"query","seq":9,"kind":"palette","text":"col"}
+{"t":"filter","seq":10,"text":"tooltip"}
+```
+
+- `action.seq` and `text.seq` are separate counters. Every `action` gets exactly one `state` reply echoing its `seq`. `text` gets no reply of its own; the next `state` carries `textAck`.
+- Action names are `keymap` command IDs, plus internal ones (`set_cursor`, `block_extend`, …) listed in `internal/server/actions.go`. Unknown names return an error message and change nothing.
+- A read-only tab's writes are refused on the server, whatever the client sends.
+
+### 12.2 Server → client
+
+```json
+{"t":"welcome","version":"…","keymap":[…],"config":{"density":"comfortable","footer":true,"columnWidth":90},"readOnly":false}
+{"t":"state","seq":7,"textAck":12,"total":10010,"start":380,"rows":[Row],
+ "cursor":"<id>","off":5,"end":5,"block":["<id>"],"anchor":"<id>",
+ "zoom":"<id>","crumbs":[{"id","text"}],"filter":"…","filterCount":12,
+ "message":"…","banners":[{"kind","text","action"?}],"saving":false,"readOnly":false}
+{"t":"result","seq":9,"kind":"palette","items":[…]}
+{"t":"clipboard","text":"…"}
+{"t":"page","id":"<id>","html":"…","markdown":"…","version":3}
+{"t":"theme","href":"/theme.css?v=<hash>"}
+{"t":"open","url":"https://…"}
+{"t":"error","code":"…","message":"…"}
+```
+
+`Row`:
+
+```json
+{"id":"<id>","depth":2,"text":"<source>","runs":[Run],"kids":true,"collapsed":false,
+ "done":false,"task":false,"heading":false,"page":false,"star":false,"matches":[[3,8]]}
+```
+
+`Run`: `{"text":"…","style":["bold","italic"],"color":"red","href":"…"?}`. Marker ranges for the focused row: `{"markers":[[0,2],[6,8]]}` on that row. `depth` is `-1` for the zoom heading.
+
+### 12.3 Rules
+
+- `state` is the whole truth for its row window. The client patches the DOM by node ID.
+- **`textAck` rule:** if `textAck` is lower than the last typing `seq` sent, the client keeps its local text for that node (§7.3).
+- **Queue rule:** while any action has no reply, the client queues keys and replays them in order. Composition events are never queued.
+- **During composition,** the client defers applying `state` until `compositionend`.
+- On reconnect the client sends `hello`, resends unacknowledged `text`, and renders the fresh `state`.
+- `theme` tells the page to swap its theme stylesheet without a reload.
+
+### 12.4 HTTP routes
+
+| Route | Purpose |
+| --- | --- |
+| `/?ticket=<t>` | Exchanges a single-use ticket (30 s life) for the session cookie, then redirects to `/` |
+| `/`, `/assets/…` | Embedded UI (`no-store` in `--dev`, content-hash `ETag` otherwise) |
+| `/theme.css`, `/user.css` | Active theme and user overrides; empty when absent |
+| `/capture` | Capture page (Phase 2) |
+| `/ws` | The WebSocket |
+| `/internal/ticket` | `POST` from `hyphal` with the state file's secret; returns a new ticket |
+| `/keyprobe` | Key matrix page, `--dev` only |
+
+Every route checks `Host` against `127.0.0.1:<port>` and `localhost:<port>`; `/ws` and all non-GET routes also check `Origin`. All responses carry `Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (inline styles only for per-row `style` attributes set by script).

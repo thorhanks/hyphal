@@ -1,34 +1,37 @@
-# Phase 0 · Storage and editing spike
+# Phase 0 · Storage and browser foundations
 
-Spec: §11 row 0, §12.4 steps 1–3, 5, 7. Exit gate: **export and import are identical; a crash loses at most the unsealed typing.**
+Spec: §11 row 0, §12.4. Exit gate: **export and import are identical; a crash loses at most the unsealed typing; the outline skeleton passes in all three browser engines.**
 
-Phase 0 code is production code, not throwaway: the leaf packages, the store, the core tree and the TUI skeleton built here are the foundations of Phase 1. "Spike" cards also produce measurement reports in `plan/reports/`.
+Phase 0 code is production code, not throwaway: the leaf packages, the store, the core tree and the web skeleton built here are the foundations of Phase 1. "Spike" cards also produce measurement reports in `plan/reports/`.
+
+**Done:** P0-01 to P0-05, plus spike P0-W1 (`plan/reports/p0-w1-web-ui.md`). **Withdrawn:** P0-17 (wrap engine; the browser does layout). P0-18, P0-19 and P0-23 were rewritten for the web UI.
 
 ## Dependency graph
 
 ```text
-P0-01 ──┬─ P0-02 ids ─────────┐
-        ├─ P0-03 fracindex ───┤
-        ├─ P0-04 textfold ────┤
-        ├─ P0-05 driver spike ┼─ P0-06 store open/schema ─ P0-08 commit+history ─┬─ P0-12 JSON export/import ─ P0-14 round-trip props
-        ├─ P0-07 model ───────┘                                                  ├─ P0-09 load+tree ─ P0-10 basic planners ─┬─ P0-11 typing seal
-        ├─ P0-16 markup ─ P0-17 layout ─ P0-18 TUI skeleton (also after P0-10)   │                                         ├─ P0-13 undo/revert + props
-        └─ P0-19 keymap + keyprobe ─ P0-23 (human) keymap matrix                 │                                         └─ P0-15 crash injection
-                                                                                 └─ P0-20 perf spike (after P0-10, P0-04)
+Done: P0-01 · P0-02 ids · P0-03 fracindex · P0-04 textfold · P0-05 driver · P0-W1 web spike
+
+P0-07 model ─ P0-06 store open/schema ─ P0-08 commit+history ─┬─ P0-12 JSON export/import ─ P0-14 round-trip props
+                                                              ├─ P0-09 load+tree ─ P0-10 basic planners ─┬─ P0-11 typing seal
+                                                              │                                         ├─ P0-13 undo/revert + props
+                                                              │                                         └─ P0-15 crash injection
+                                                              └─ P0-20 perf spike (after P0-10)
+P0-16 markup ───────────────────────────┐
+P0-10, P0-11 ─ P0-18 web skeleton ──────┴─ P0-19 keymap + keyprobe ─ P0-23 (human) browser, IME and terminal checks
 P0-21 growth spike (after P0-11) ─ P0-22 gate
 ```
 
 ---
 
-### P0-01 · Repository bootstrap
-Type: impl · Packages: repo root, `internal/archtest`, `.github/` · Depends on: — · Spec: §9.1, §9.6 · Human review: yes (go.mod)
+### P0-01 · Repository bootstrap · Done
+Type: impl · Packages: repo root, `internal/archtest`, `.github/` · Depends on: — · Spec: §9.1, §9.6
 
 Goal: a buildable Go module with CI, lint and the architecture test, so later cards only add code.
 
 Deliverables:
 - `go.mod` with module `github.com/thorhanks/hyphal`, Go ≥ 1.26, toolchain line. Add only the deps needed now (`pgregory.net/rapid`, `golang.org/x/tools` for archtest if used).
 - `cmd/hyphal/main.go` printing `hyphal dev` for `--version` (replaced in P1-25).
-- Empty package directories with `doc.go` for every package in ARCHITECTURE §1 (doc comment: purpose + spec §).
+- Empty package directories with `doc.go` for every package in ARCHITECTURE §1 (as it stood then; P0-18 reconciles the layout) (doc comment: purpose + spec §).
 - `Makefile` with the targets in TESTING §1.
 - `.golangci.yml` (linters in ARCHITECTURE §7).
 - `.github/workflows/ci.yml` and `nightly.yml` per TESTING §2 (benchmark comparison step can be a no-op until P0-20 creates a baseline).
@@ -43,7 +46,7 @@ Acceptance criteria:
 
 ---
 
-### P0-02 · `ids`
+### P0-02 · `ids` · Done
 Type: impl · Packages: `internal/ids` · Depends on: P0-01 · Spec: §7.2 · CONTRACTS §2
 
 Deliverables: `NewNode`, `NewChangeSet`, `Valid`, and `NewNodeFrom(r io.Reader)` for deterministic tests.
@@ -55,7 +58,7 @@ Acceptance criteria:
 
 ---
 
-### P0-03 · `fracindex`
+### P0-03 · `fracindex` · Done
 Type: impl · Packages: `internal/fracindex` · Depends on: P0-01 · Spec: §7.2 · CONTRACTS §3
 
 Deliverables: `Between`, `NBetween`, `Valid`, `FuzzBetween`.
@@ -71,7 +74,7 @@ Acceptance criteria:
 
 ---
 
-### P0-04 · `textfold`
+### P0-04 · `textfold` · Done
 Type: impl · Packages: `internal/textfold` · Depends on: P0-01 · Spec: §6.2
 
 Goal: case-insensitive, diacritic-insensitive substring matching with offsets mapped back to the original string.
@@ -87,8 +90,8 @@ Acceptance criteria:
 
 ---
 
-### P0-05 · SQLite driver evaluation
-Type: spike · Packages: `internal/store/driverspike` (deleted at the end of the card or kept as a benchmark) · Depends on: P0-01 · Spec: §9.1, §8.5, §9.4, §12.4.7 · Human review: yes (go.mod)
+### P0-05 · SQLite driver evaluation · Done
+Type: spike · Packages: `internal/store/driverspike` (deleted at the end of the card or kept as a benchmark) · Depends on: P0-01 · Spec: §9.1, §8.5, §9.4, §12.4.7
 
 Goal: choose between `modernc.org/sqlite` and `github.com/ncruces/go-sqlite3`.
 
@@ -104,14 +107,14 @@ Evaluate for each, on Linux (CI) and macOS (CI):
 Deliverables: `plan/reports/p0-05-sqlite-driver.md` with a table and the decision; `go.mod` pins the chosen driver. Default to `modernc.org/sqlite` unless it fails 1–3 or is > 2× slower on 4–5.
 
 Acceptance criteria:
-- AC1 The report exists and names the chosen driver, with numbers for items 4–5 → reviewed in PR.
+- AC1 The report exists and names the chosen driver, with numbers for items 4–5 → reviewed by Thor.
 - AC2 `TestBackupWhileWriting` and `TestRestoreIntoLiveDB` pass with the chosen driver (kept in `internal/store` as regression tests).
 - AC3 `TestDataVersionAcrossProcesses` passes (spawns a helper process).
 
 ---
 
 ### P0-06 · Store: open, schema v1, migrations, permissions
-Type: impl · Packages: `internal/store` · Depends on: P0-05, P0-02, P0-07 · Spec: §7.1, §7.2, §7.4, §8.1 · CONTRACTS §4, §9 · Human review: yes (schema)
+Type: impl · Packages: `internal/store` · Depends on: P0-05, P0-02, P0-07 · Spec: §7.1, §7.2, §7.4, §8.1 · CONTRACTS §4, §9
 
 Deliverables:
 - `Open(path, OpenOptions)`: create the parent dir 0700 if missing, the DB 0600, and set pragmas (WAL, `synchronous=FULL`, `foreign_keys=ON`, `busy_timeout`, macOS `fullfsync=ON`).
@@ -224,7 +227,7 @@ Acceptance criteria:
 ### P0-13 · Undo stack, revert, and history properties
 Type: impl · Packages: `internal/core` · Depends on: P0-10 · Spec: §5.6, §8.2 · CONTRACTS §5 · D-009, D-013
 
-Deliverables: `UndoStack` (session, in memory) with entries `{ChangeSetID, Ops, CursorBefore any}`; `Outline.Undo/Redo` (TUI source only; CLI outlines have no stack); `PlanRevert(changeSetID)` producing the inverse for fields not changed since, plus `Skipped`. Redo cleared on any new TUI change.
+Deliverables: `UndoStack` (session, in memory) with entries `{ChangeSetID, Ops, CursorBefore any}`; `Outline.Undo/Redo` (UI source only; CLI outlines have no stack); `PlanRevert(changeSetID)` producing the inverse for fields not changed since, plus `Skipped`. Redo cleared on any new TUI change.
 
 Acceptance criteria:
 - AC1 Random action sequences (rapid, 1–50 actions) followed by undo-all restore the original tree exactly (excluding history and versions/updated_at) → `TestUndoAll_RestoresOriginal`.
@@ -277,67 +280,54 @@ Acceptance criteria:
 
 ---
 
-### P0-17 · `layout`: wrap and cursor engine
-Type: impl · Packages: `internal/layout` · Depends on: P0-16 · Spec: §4.3 (wrapped lines), §6.1, §9.3, §4.6
+### P0-18 · Web skeleton: server, protocol, outline component
+Type: impl · Packages: `internal/server`, `internal/web`, `e2e/`, `cmd/hyphal` · Depends on: P0-10, P0-11, P0-16 · Spec: §4.2, §4.3, §4.4, §9.1, §9.3 · CONTRACTS §12 · D-039, D-040, D-042
+
+Goal: the real foundation replacing `internal/webspike`: a server over the real `core` and an outline web component that navigates and types, with the spike's lessons built in. Use the spike as a reference and delete it at the end, with `.github/workflows/webspike.yml`.
 
 Deliverables:
-- `Wrap(runs, width, firstIndent, contIndent) Layout`: greedy word wrap on `uniseg` line-break opportunities; graphemes never split; a word longer than the line breaks at grapheme boundaries; widths from `uniseg` (CJK = 2, emoji = 2).
-- Cursor operations on byte offsets of the **source** text (works with `Revealed()` runs because offsets are 1:1): Left/Right by grapheme, WordLeft/WordRight (uniseg word boundaries, skipping whitespace/punctuation like readline), Up/Down by visual line keeping `PreferredCol`, LineHome/LineEnd per visual line, `OffsetToCell(offset) (row, col)` and `CellToOffset(row, col)` (for mouse in P2).
-- Helpers for Home/End double-press semantics (§6.1): `AtLineHome`, `AtLineEnd`.
+- Add `github.com/coder/websocket`. Reconcile the package directories with ARCHITECTURE §1 (remove `internal/tui`, `internal/layout`, `internal/clipboard`; add `server`, `web`).
+- `server.Run`: loopback listener on a random port, Host and Origin checks, ticket → cookie exchange (D-041), CSP header, embedded assets, `/ws`, session goroutine (ARCHITECTURE §5), `hyphal serve [--dev] [--seed FILE]`. The `dev` build tag gates `--seed`, `window.__hyphal` and `/keyprobe`.
+- Protocol per CONTRACTS §12: `hello`, `welcome`, `text`, `action`, `window`, `state` with `textAck`.
+- `web/assets`: `index.html`, `tokens.css` with placeholder values (the design talk sets them), `base.css` with the `@layer` order, `<hyphal-app>` and `<hyphal-outline>`: row window with reuse by ID, one `contenteditable="plaintext-only"` focused row, Up/Down across wrapped lines and bullets at a stable column, Left/Right across edges, click to place the caret, the key queue, composition handling, runs rendered without `innerHTML`, marker highlights (D-042).
+- `servertest.Harness` (TESTING §4), `e2e/` with `package.json` pinned, `helpers.mjs`, ported spike tests. `Makefile` targets `e2e`, `web-lint`; `mise.toml` pins Node 22. CI runs `make e2e`.
+- `internal/web` asset checks (TESTING §6).
 
 Acceptance criteria:
-- AC1 Wrapping table: ASCII words, long URL, CJK, emoji ZWJ sequences, combining marks; widths never exceed the limit → `TestWrap_Table`, `FuzzWrap` (no line exceeds width; concatenated lines == source).
-- AC2 Cursor Left/Right never lands inside a grapheme → `FuzzCursorGraphemes`.
-- AC3 Up/Down preserve preferred column across lines of different lengths and wide chars → `TestCursor_UpDownPreferredCol`.
-- AC4 Up at the first visual line and Down at the last return `false` (the caller moves to the previous/next bullet) → `TestCursor_Edges`.
-- AC5 `OffsetToCell`/`CellToOffset` are inverse on grapheme boundaries → `TestCellMapping`.
+- AC1 Loopback only; bad `Host`, `Origin`, ticket or cookie is refused; a ticket works once; the cookie is `HttpOnly` and `SameSite=Strict`; CSP is set → `TestHTTP_Security` (table).
+- AC2 Typing shows at once and reaches the tree; a stale `state` never overwrites newer text → `typing keeps order`, `stale state keeps local text` (e2e), `TestSession_TextAck`.
+- AC3 Down from the last visual line of a wrapped bullet moves to the first visual line of the next, keeping the column → `navigation at stable column` (e2e, three engines).
+- AC4 Emoji and combining marks survive edits and offsets; composition updates only on commit (Chromium) → `text integrity` (e2e).
+- AC5 At 100,000 nodes with 10,000 visible, scrolling away and pressing a key returns to the cursor → `scroll away and return` (e2e).
+- AC6 Unfocused `**bold**` renders bold without markers; focused shows source with marker highlight ranges → `concealment` (e2e).
+- AC7 Asset checks pass, and each fails on a crafted violation → `TestWebAssets_*`.
+- AC8 The full suite runs headless in CI on Linux and macOS.
 
 ---
 
-### P0-18 · TUI skeleton and stack check
-Type: spike+impl · Packages: `internal/tui`, `internal/tui/theme`, `internal/tui/tuitest` · Depends on: P0-17, P0-10 · Spec: §4.2, §4.3, §4.6, §9.1, §9.3, §12.4.3, §12.4.7 · Human review: yes (go.mod, first goldens)
-
-Goal: prove the stack (Bubble Tea v2, Lip Gloss v2, teatest v2) and build the rendering foundation: a read-only outline view with a cursor that moves through wrapped lines.
+### P0-19 · `keymap` tables and validation; key probe
+Type: impl · Packages: `internal/keymap`, `internal/web`, `internal/server` · Depends on: P0-18 · Spec: §6.4
 
 Deliverables:
-- Pin Bubble Tea v2, Lip Gloss v2, Bubbles v2 and the teatest v2 module. Record exact versions and any API notes (View struct fields, cursor placement, key strings, paste/focus/background messages, keyboard enhancements) in `plan/reports/p0-18-stack.md`. Agents in later cards read this report for API facts.
-- `Model` that loads a tree from a DB path and renders: header row (breadcrumb `Home`), blank row, outline rows (glyphs `▸ ▾ •`, indent 2, wrapped continuation under text start, §4.3), footer hints; centered reading column (default 90); "Terminal too small" below 40×10.
-- Row rendering uses `markup.Concealed()` for unfocused rows and `Revealed()` for the focused row; per-row render cache keyed by (node version, focused, width, theme) (§9.3).
-- Cursor navigation only: Up/Down through visual lines across bullets, Left/Right, Home/End; terminal cursor placed via the v2 view cursor.
-- `tuitest.Harness` minimal version (Options.Outline, Keys, Screen, AssertOutline for cursor position).
-- One teatest golden screen of the §4.2 mockup content (zoom on Home for now).
-
-Acceptance criteria:
-- AC1 `plan/reports/p0-18-stack.md` exists with pinned versions and confirmed APIs for: key strings for `ctrl+enter`, `shift+tab`, `ctrl+shift+up`; bracketed paste message; focus message; background color query/response; cursor placement; keyboard enhancement request → PR review.
-- AC2 teatest v2 drives the program and produces a stable golden → `TestScreen_Basic` (golden).
-- AC3 Down from the last visual line of a wrapped bullet moves to the first visual line of the next bullet, keeping the column → `TestNav_DownAcrossWrappedBullets`.
-- AC4 Wrapped continuation rows start under the text, not the glyph → `TestRender_WrapIndent` (golden).
-- AC5 Below 40 columns the screen shows `Terminal too small (39×30)` → `TestRender_TooSmall`.
-- AC6 Unfocused `**bold**` renders without markers; focused shows them → `TestRender_Concealment` (ANSI golden).
-
----
-
-### P0-19 · `keymap` tables and validation; keyprobe tool
-Type: impl · Packages: `internal/keymap`, `cmd/hyphal-keyprobe` · Depends on: P0-18 (key string facts) · Spec: §6.4
-
-Deliverables:
-- `CommandID` constants for **every** command in §6.4 and §6.6 (snake_case, e.g. `quit`, `help`, `command_palette`, `jump_palette`, `undo`, `redo`, `save_hint`, `new_bullet`, `indent`, `outdent`, `block_select`, `move_up`, `move_down`, `toggle_complete`, `filter`, `collapse`, `expand`, `expand_level_1`…`expand_level_9`, `expand_all`, `zoom_in`, `zoom_out`, `zoom_root`, `edit_text`, `toggle_task`, `toggle_heading`, `delete_subtree`, `copy`, `cut`, `open_page`, `follow_link`, `open_in_editor`, `duplicate`, `toggle_show_completed`, `color_picker`, `toggle_star`, `move_to`, …). Each command has metadata: display name (palette), phase, contexts, `PaletteOnly bool`, `BlockSelectionCommand bool`.
-- `Defaults()` with the exact tables of §6.4 (global, text, block, filter, page_view, page_edit (P2), overlay, trash). Text-editing movement/selection keys are bindings too (`cursor_word_left` etc.).
-- `Validate()` implementing §6.4's test rules: no key bound twice in one context; every command has at least one binding that works without kitty (only `ctrl+enter` is kitty-only); every `BlockSelectionCommand` has a single-key binding in `block`; no default binding outside word-editing commands uses `alt+`.
-- `cmd/hyphal-keyprobe`: a tiny Bubble Tea v2 program that asks the user to press each binding from `Defaults()` (prompted by name), records the received key string (or timeout/skip), and writes `keyprobe-<terminal>-<os>-<tmux|bare>.json`. Includes instructions in `docs/keyprobe.md`.
+- `CommandID` constants for **every** command in §6.4 and §6.6 (snake_case, e.g. `help`, `command_palette`, `jump_palette`, `undo`, `redo`, `save_hint`, `new_bullet`, `indent`, `outdent`, `block_select`, `move_up`, `move_down`, `toggle_complete`, `filter`, `collapse`, `expand`, `expand_level_1`…`expand_level_9`, `expand_all`, `zoom_in`, `zoom_out`, `zoom_root`, `edit_text`, `toggle_task`, `toggle_heading`, `delete_subtree`, `copy`, `cut`, `open_page`, `follow_link`, `open_in_editor`, `duplicate`, `toggle_show_completed`, `color_picker`, `toggle_star`, `move_to`, …). Each command has metadata: display name (palette), phase, contexts, `PaletteOnly bool`, `BlockSelectionCommand bool`, and `Native bool` for keys the browser performs itself.
+- `Defaults()` with the exact tables of §6.4, in `event.key` notation with `Mod` resolved per platform at the server. Key strings: `mod+shift+arrowup`, `escape`, `#`.
+- `Validate()` implementing §6.4's rules: no key bound twice in one context; every `BlockSelectionCommand` has a single-key binding in `block`; no default binding uses a reserved key (`mod+w`, `mod+t`, `mod+n`, `ctrl+tab`, `mod+q`).
+- `lib/keys.js` dispatches from the keymap JSON sent in `welcome`, calling `preventDefault` only for bound keys.
+- `/keyprobe` (`--dev`): lists every binding, shows which reach the page, and downloads a JSON result. Instructions in `docs/keyprobe.md`.
 
 Acceptance criteria:
 - AC1 `Defaults().Validate()` returns no problems → `TestDefaults_Valid`.
-- AC2 Each validation rule detects a crafted violation → `TestValidate_Rules` (table: duplicate, kitty-only, missing block key, alt binding).
-- AC3 Every block-selection key in §6.4's table is present exactly as specified → `TestDefaults_BlockTableMatchesSpec` (table copied from §6.4).
-- AC4 keyprobe writes valid JSON for a scripted session → `TestKeyprobe_Record` (drives the model directly).
+- AC2 Each validation rule detects a crafted violation → `TestValidate_Rules` (table).
+- AC3 Every block-selection key in §6.4's table is present exactly as specified → `TestDefaults_BlockTableMatchesSpec`.
+- AC4 On macOS `mod` resolves to Meta, and native keys stay unbound → `keymap platform` (e2e with a forced platform).
+- AC5 The probe records keys and produces valid JSON → `keyprobe records` (e2e).
 
 ---
 
 ### P0-20 · Performance spike: filter, fuzzy, CLI load
 Type: spike · Packages: `internal/core`, `internal/testgen` · Depends on: P0-10, P0-04, P0-16 · Spec: §6.2, §9.4, §12.4.7
 
-Deliverables: `testgen.BenchDB`; benchmarks `BenchmarkFilter100k` (folded substring over plain text of 100k nodes; precompute and cache folded plain text per node in the tree, invalidated on text change), `BenchmarkFuzzy100k` (`sahilm/fuzzy` over 100k plain strings; if > 50 ms, evaluate alternatives or pre-filter by substring), `BenchmarkCLILoad100k`, `BenchmarkQuickCheck` (10k, 100k nodes + 1 year of simulated history from P0-21 if available). Report `plan/reports/p0-20-perf.md` with numbers and the stored CI baseline `testdata/bench/baseline.txt`.
+Deliverables: `testgen.BenchDB`; benchmarks `BenchmarkFilter100k` (folded substring over plain text of 100k nodes; precompute and cache folded plain text per node in the tree, invalidated on text change), `BenchmarkFuzzy100k` (`sahilm/fuzzy` over 100k plain strings; if > 50 ms, evaluate alternatives or pre-filter by substring), `BenchmarkCLILoad100k`, `BenchmarkActionReply10k` (action → state message over the session), `BenchmarkQuickCheck` (10k, 100k nodes + 1 year of simulated history from P0-21 if available). Report `plan/reports/p0-20-perf.md` with numbers and the stored CI baseline `testdata/bench/baseline.txt`.
 
 Acceptance criteria:
 - AC1 Filter over 100k nodes < 50 ms per keystroke on the CI runner, or the report explains the gap and the plan (incremental refinement: a longer query filters the previous result set) → report + benchmark.
@@ -352,21 +342,41 @@ Type: spike · Packages: `internal/testgen`, `cmd/hyphal-sim` (optional, or a te
 Deliverables: a simulator that replays a "heavy day" (≈ 2,000 typing seals, 300 structural actions, 50 deletes, 20 page saves of 2 KB, 5 editor round trips touching 50 lines) for 7 and 365 simulated days on a 5,000-node outline. Report `plan/reports/p0-21-growth.md`: DB size per day/year, history share, `quick_check` duration at 1 year, `LoadAll` time at 1 year, recommendation on a retention default (§12.3).
 
 Acceptance criteria:
-- AC1 Report exists with measured numbers and a recommendation → PR review.
+- AC1 Report exists with measured numbers and a recommendation → Thor review.
 
 ---
 
 ### P0-22 · Phase 0 gate
-Type: gate · Depends on: P0-01…P0-21 · Spec: §11 row 0
+Type: gate · Depends on: P0-01…P0-21, P0-24 · Spec: §11 row 0
 
-Deliverables: `plan/reports/phase-0-gate.md` listing: gate criteria with the tests that prove them (P0-14 AC1–3, P0-15 AC1–3), all reports, open risks, and any proposed spec changes from measurements (keymap matrix pending human). Leave `Signed off:` for the human.
+Deliverables: `plan/reports/phase-0-gate.md` listing: gate criteria with the tests that prove them (P0-14 AC1–3, P0-15 AC1–3), all reports, open risks, and any proposed spec changes from measurements (browser checks pending human). Leave `Signed off:` for the human.
 
 Acceptance criteria:
-- AC1 `go test -tags crash ./...` and the round-trip property tests pass on main → CI link in the report.
+- AC1 `go test -tags crash ./...`, the round-trip property tests and `make e2e` pass on main → CI link in the report.
 
 ---
 
-### P0-23 · Keymap matrix in real terminals
-Type: human · Depends on: P0-19 · Spec: §6.4 test matrix, §12.4.5
+### P0-23 · Browser, IME and terminal checks
+Type: human · Depends on: P0-19 · Spec: §6.4, §6.3, §9.6
 
-Agent part: write `docs/keyprobe.md` (how to run keyprobe in each terminal of the §6.4 matrix, bare and inside tmux with the recommended settings), and an ingestion script `go run ./cmd/hyphal-keyprobe report *.json` that produces `plan/reports/p0-23-keymap-matrix.md` (a table: binding × terminal, with ✓/✗/received-as). Then stop. After the human drops the JSON files into `testdata/keyprobe/`, a follow-up agent runs the report and proposes §6.4 changes (as a `[QUESTION]` PR) if any required binding fails.
+These close what spike P0-W1 couldn't automate.
+
+Agent part: write `docs/keyprobe.md` covering three checks, and a command that turns the results into `plan/reports/p0-23-browser-checks.md`. Then stop.
+
+1. **Keys.** `/keyprobe` in Chromium as a tab and as `--app`, Firefox, and on a Mac in Safari. Save each JSON result to `testdata/keyprobe/`.
+2. **IME,** if Thor uses one: compose text in a bullet, including across Enter.
+3. **`$EDITOR`.** `scripts/editor-check.sh` opens a temp file through the default `editor.command` in each terminal Thor uses (Ghostty, Alacritty, Kitty on Omarchy) and reports whether completion was signalled after the editor closed, and not before.
+
+Afterwards a follow-up agent runs the report and asks Thor about any §6.4 or §6.3 change.
+
+---
+
+### P0-24 · Clipboard across engines
+Type: spike · Packages: `e2e/`, `internal/web` · Depends on: P0-18 · Spec: §5.5
+
+Goal: settle §5.5's transport, which the spike verified only on Chromium.
+
+Deliverables: a small test page exercising `navigator.clipboard.write` with a promise-valued `ClipboardItem` resolved by a server reply, and `writeText` right after the reply, in Chromium, Firefox and WebKit; `paste` event text access. Report `plan/reports/p0-24-clipboard.md` with the chosen approach per engine and any fallback.
+
+Acceptance criteria:
+- AC1 The report names a working transport for each engine, with the test that proves it, or says plainly which engine fails and proposes a fix → report + `clipboard transport` (e2e).

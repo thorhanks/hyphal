@@ -1,2 +1,2 @@
 # Hyphal
-Terminal UI outliner + markdown note app.
+Local-first outliner and Markdown note app with a native web UI.

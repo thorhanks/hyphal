@@ -1,19 +1,19 @@
 # Phase 2 · Full Workflowy parity
 
-Spec: §11 row 2. Scope: tags, node links, search operators, stars; jump palette, history view, mouse, page edit mode; scheduled export, capture window, read-only takeover; Sort children and Copy link to node (§6.6).
+Spec: §11 row 2. Scope: tags, node links, search operators, stars; jump palette, history view, page mode sync and split view; scheduled export, capture window, Edit here takeover; Sort children and Copy link to node (§6.6).
 
 Exit gate: **every *Must* row of the parity checklist works** (P2-23, automated).
 
-Detail level: task cards with acceptance criteria. Cards that depend on an open question (§12.3 "Phase 2") are blocked until their decision card is resolved; after resolution the deciding agent **must** update those cards' ACs in this file (additive edit, same PR as the DECISIONS entry).
+Detail level: task cards with acceptance criteria. Cards that depend on an open question (§12.3 "Phase 2") are blocked until their decision card is resolved; after resolution the deciding agent **must** update those cards' ACs in this file (additive edit, same commit as the DECISIONS entry).
 
 ## Dependencies
 
 ```text
-P2-01 tags decision ──▶ P2-04 markup tags ─▶ P2-05 core tags ─▶ P2-06 TUI tags ─▶ P2-21 CLI tags
-P2-02 links decision ─▶ P2-07 core links ─▶ P2-08 TUI links
-P2-03 screens decision ─▶ P2-11 stars · P2-12 jump palette · P2-16 history view · P2-17 mouse
+P2-01 tags decision ──▶ P2-04 markup tags ─▶ P2-05 core tags ─▶ P2-06 UI tags ─▶ P2-21 CLI tags
+P2-02 links decision ─▶ P2-07 core links ─▶ P2-08 UI links
+P2-03 screens decision ─▶ P2-11 stars · P2-12 jump palette · P2-16 history view
 P2-09 query parser (after P2-04) ─▶ P2-10 operators in filter + CLI
-P2-18 page editor ─▶ P2-19 mode switching + split view
+P2-19 mode switching + split view
 independent: P2-13 scheduled export · P2-14 capture window · P2-15 takeover · P2-20 sort children
 P2-22 parity suite ─▶ P2-23 gate
 ```
@@ -46,12 +46,12 @@ Proposal `plan/proposals/p2-02-links.md`:
 
 Stop for the human. Afterwards update P2-07, P2-08, and P1-13's `retargetLinks` hook description.
 
-### P2-03 · Decide: Phase 2 screens and mouse
-Type: decision · Spec: §6.6 (stars), §8.2 (history view), §5.9 (tag list), §6.2 (jump palette), §6.5, §12.3 (Phase 2 · Screens)
+### P2-03 · Decide: Phase 2 screens and drag
+Type: decision · Spec: §6.6 (stars), §8.2 (history view), §5.9 (tag list), §6.2 (jump palette), §12.3 (Phase 2 · Screens)
 
-Proposal `plan/proposals/p2-03-screens.md` with ASCII mockups (100 columns) and keys for: History view (two modes: a node's versions, change sets by time/source; restore a version; revert a change set), Stars view, tag list (palette command result rows), jump palette result rows (text + breadcrumb layout, starred first, saved searches in P3), and mouse details (scroll amount, click on text → cursor via `layout.CellToOffset`, click on glyph → toggle collapse, click on tag → filter, click in overlays, Shift+drag documentation, `mouse=false`). Keys must satisfy §6.4's rules (no Alt, single keys in block selection, palette-discoverable).
+Proposal `plan/proposals/p2-03-screens.md` with HTML mockups using the live tokens, and keys for: History view (two modes: a node's versions, change sets by time/source; restore a version; revert a change set), Stars view, tag list (palette command result rows), jump palette result rows (text + breadcrumb layout, starred first, saved searches in P3), and click on tag → filter. If Thor approved drag-to-move (§12.3), its behavior too. Keys must satisfy §6.4's rules (no reserved keys, single keys in block selection, palette-discoverable).
 
-Stop for the human. Afterwards update P2-11, P2-12, P2-16, P2-17 and `keymap` defaults (with `Human review: yes`).
+Stop for the human. Afterwards update P2-11, P2-12, P2-16 and `keymap` defaults.
 
 ---
 
@@ -72,13 +72,13 @@ Acceptance criteria:
 - AC2 Colors are stable across runs and honor overrides → `TestTagColors`.
 - AC3 Nested tag lookup → `TestTagIndex_Nested`.
 
-### P2-06 · TUI: tag chips, completion, follow, tag list
-Type: impl · Packages: `internal/tui` · Depends on: P2-05, P2-03 · Spec: §5.9, §4.6 (chips)
-Deliverables: chips as colored text (never filled backgrounds); typing `#` opens a completion popup (overlay styling, anchored under the cursor) from existing tags; `o` (and click, P2-17) on a tag sets the filter to that tag; Enter never follows a tag; palette "Tags" lists tags with counts (P2-03 rows); choosing one filters.
+### P2-06 · UI: tag chips, completion, follow, tag list
+Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P2-05, P2-03 · Spec: §5.9, §4.6 (chips)
+Deliverables: chips as colored text by default, themeable; typing `#` opens a completion popup (Popover API, anchored under the caret) from existing tags; `o` and click on a tag sets the filter to that tag; Enter never follows a tag; palette "Tags" lists tags with counts (P2-03 rows); choosing one filters.
 Acceptance criteria:
-- AC1 Chips render in their color, readable on light theme (golden dark+light) → `TestTags_Render`.
-- AC2 `#` completion inserts the chosen tag → `TestTags_Completion`.
-- AC3 `o` on a bullet with one tag filters by it; with a tag and a link a picker appears → `TestTags_Follow`.
+- AC1 Chips render in their color, readable on light and dark themes → `tag chips` (e2e).
+- AC2 `#` completion inserts the chosen tag → `tag completion` (e2e).
+- AC3 `o` on a bullet with one tag filters by it; with a tag and a link a picker appears → `tag follow` (e2e).
 
 ### P2-07 · Core: node links
 Type: impl · Packages: `internal/core`, `internal/markup` (if needed) · Depends on: P2-02, P2-04 · Spec: §10.1, §5.3 (retarget), §5.4 (duplicate keeps link targets), §7.5 (export)
@@ -89,13 +89,13 @@ Acceptance criteria: per P2-02 outcomes, at minimum:
 - AC3 Duplicate keeps link targets → `TestLinks_Duplicate`.
 - AC4 Markdown export writes the agreed Obsidian form → `TestExportMarkdown_Links` (golden).
 
-### P2-08 · TUI: link insertion and following
-Type: impl · Packages: `internal/tui`, `internal/tui/pageview` · Depends on: P2-07, P2-12 · Spec: §10.1, §5.7 (page view links), §6.4 (`o`)
-Deliverables: typing `[[` opens the jump-palette-style picker; choosing inserts the stored link form; `o` follows (zoom to target's parent with target selected, like the jump palette); page view Tab cycles node links too and Enter zooms to the target; palette "Copy link to node".
+### P2-08 · UI: link insertion and following
+Type: impl · Packages: `internal/server`, `internal/server/pageview`, `internal/web` · Depends on: P2-07, P2-12 · Spec: §10.1, §5.7 (page view links), §6.4 (`o`)
+Deliverables: typing `[[` opens the jump-palette-style picker; choosing inserts the stored link form; `o` and click follow (zoom to target's parent with target selected, like the jump palette); page view Tab cycles node links too and Enter zooms to the target; palette "Copy link to node".
 Acceptance criteria:
-- AC1 `[[` + query + Enter inserts a link that renders as the target's text → `TestLinks_Insert`.
-- AC2 `o` on a link zooms to the target → `TestLinks_Follow`.
-- AC3 Page view Enter on a node link zooms there → `TestPageView_NodeLink`.
+- AC1 `[[` + query + Enter inserts a link that renders as the target's text → `link insert` (e2e).
+- AC2 `o` on a link zooms to the target → `link follow` (e2e).
+- AC3 Page view Enter on a node link zooms there → `page node link` (e2e).
 
 ### P2-09 · Core: search query parser and operators
 Type: impl · Packages: `internal/core` · Depends on: P2-04 · Spec: §6.2 (operators)
@@ -107,84 +107,67 @@ Acceptance criteria:
 - AC4 `BenchmarkFilter100k` with operators within 50 ms → benchmark.
 
 ### P2-10 · Operators in the filter and CLI search
-Type: impl · Packages: `internal/tui`, `internal/cli` · Depends on: P2-09
+Type: impl · Packages: `internal/server`, `internal/cli` · Depends on: P2-09
 Acceptance criteria:
-- AC1 Filter with `is:task is:open` shows open tasks → `TestFilter_Operators`.
+- AC1 Filter with `is:task is:open` shows open tasks → `filter operators` (e2e).
 - AC2 `hyphal search "tooltip #bug is:open" --json` golden → `TestCLI_Search_Operators`.
 
 ### P2-11 · Stars
-Type: impl · Packages: `internal/core`, `internal/cli`, `internal/tui` · Depends on: P2-03 · Spec: §6.6 (stars), §10.2 (`star`, `unstar`)
+Type: impl · Packages: `internal/core`, `internal/cli`, `internal/server`, `internal/web` · Depends on: P2-03 · Spec: §6.6 (stars), §10.2 (`star`, `unstar`)
 Deliverables: `PlanToggleStar(nodes)` (root can't be starred; to star the zoom target toggle it on the zoom heading); `s` in block selection; CLI `star N`, `unstar N`; `starred` in CLI node JSON; Stars view per P2-03; `is:starred` (P2-09).
 Acceptance criteria:
-- AC1 `s` toggles; undoable; star appears in history as `set_star` → `TestStars_Toggle`.
+- AC1 `s` toggles; undoable; star appears in history as `set_star` → `stars toggle` (e2e).
 - AC2 CLI star/unstar JSON goldens → `TestCLI_Star`.
-- AC3 Stars view lists starred bullets; Enter zooms → `TestStarsView`.
+- AC3 Stars view lists starred bullets; Enter zooms → `stars view` (e2e).
 
 ### P2-12 · Jump palette and Move to…
-Type: impl · Packages: `internal/tui`, `internal/core` · Depends on: P2-11, P2-03 · Spec: §6.2 (jump palette), §5.4 (Move to)
-Deliverables: Ctrl+K fuzzy finder over all live node text with breadcrumbs, starred first (P2-03 rows); Enter zooms to the result's parent with the result selected; Move to… switches to the jump palette (starred first). Fuzzy over 100k nodes within the frame budget (precomputed plain strings; async scoring if needed with stale-result dropping).
+Type: impl · Packages: `internal/server`, `internal/web`, `internal/core` · Depends on: P2-11, P2-03 · Spec: §6.2 (jump palette), §5.4 (Move to)
+Deliverables: Ctrl+K fuzzy finder over all live node text with breadcrumbs, starred first (P2-03 rows); Enter zooms to the result's parent with the result selected; Move to… switches to the jump palette (starred first). Fuzzy over 100k nodes on the server (precomputed plain strings; stale results dropped).
 Acceptance criteria:
-- AC1 Ctrl+K, type, Enter → zoomed to the parent with the result selected → `TestJump_Zoom`.
-- AC2 Starred results listed first → `TestJump_StarredFirst`.
-- AC3 Move to uses the jump palette → `TestMoveTo_JumpPalette`.
+- AC1 Ctrl+K, type, Enter → zoomed to the parent with the result selected → `jump zoom` (e2e).
+- AC2 Starred results listed first → `jump starred first` (e2e).
+- AC3 Move to uses the jump palette → `move to jump` (e2e).
 - AC4 `BenchmarkJump100k` < 50 ms per keystroke (CI baseline).
 
 ### P2-13 · Scheduled export
-Type: impl · Packages: `internal/core`, `internal/cli`, `internal/tui`, `internal/config` · Spec: §7.5 (scheduled export), §13 (`export.*`)
+Type: impl · Packages: `internal/core`, `internal/cli`, `internal/server`, `internal/config` · Spec: §7.5 (scheduled export), §13 (`export.*`)
 Deliverables: `ScheduledExportIfDue(cfg, now)`: `export.format` markdown|json, `when` daily (due when `meta.last_export_at` > 24 h old) or quit; target `export.dir`; files named `<dbname>-<UTC stamp>.md|.json` (Markdown: a folder per export containing `outline.md` and `pages/`); keep the newest `export.keep`; checks at launch, quit and on the 60 s tick; `hyphal export --scheduled` runs it now if due (for systemd/launchd/cron); `docs/scheduled-export.md` with a systemd user timer and a launchd plist.
 Acceptance criteria:
 - AC1 Due logic and retention (fake clock) → `TestScheduledExport_DueAndKeep`.
-- AC2 `when = "quit"` exports on TUI quit → `TestScheduledExport_OnQuit`.
+- AC2 `when = "quit"` exports when the server exits → `TestScheduledExport_OnQuit`.
 - AC3 `hyphal export --scheduled` exports only when due → `TestCLI_ExportScheduled`.
 
 ### P2-14 · Capture window
-Type: impl · Packages: `internal/cli`, `docs/`, `packaging/` · Spec: §4.7 (capture window), §13 (`capture.terminal`)
-Deliverables: `hyphal capture --window` launches `capture.terminal` (template with `{cmd}` placeholder; default from P1-01 verified against Omarchy's default terminal and `xdg-terminal-exec`), detached; window class `hyphal-capture`; Hyprland rule snippet (small, floating, centered) and a suggested Super binding checked against Omarchy's defaults in `docs/omarchy.md`; macOS: print a message that `--window` is Linux-only and run inline.
+Type: impl · Packages: `internal/cli`, `internal/server`, `internal/web`, `docs/`, `packaging/` · Spec: §4.7 (capture window)
+Deliverables: `/capture` route: `<hyphal-capture>`, one input; Enter sends `PlanAdd` to the Inbox and closes the window; Esc closes without adding. `hyphal capture --window` starts or finds the server, gets a ticket, and opens `/capture` as a small `--app` window with class `hyphal-capture`; the server's exit grace applies. Hyprland rule snippet (small, floating, centered) and a suggested Super binding checked against Omarchy's defaults in `docs/omarchy.md`. With no Chromium-family browser, and on macOS: a message, then inline capture. A capture page doesn't count as an editing tab.
 Acceptance criteria:
-- AC1 The configured template is expanded and executed with the right argv (fake exec) → `TestCaptureWindow_Command`.
-- AC2 On macOS, `--window` falls back to inline capture with a message → `TestCaptureWindow_Darwin`.
+- AC1 Typing + Enter adds to the Inbox and closes → `capture page` (e2e).
+- AC2 Capture works while another tab is editing → `capture alongside editor` (e2e).
+- AC3 The command has the right argv (fake exec); the fallback runs inline capture with a message → `TestCaptureWindow_Command`, `TestCaptureWindow_Fallback`.
 
-### P2-15 · Read-only takeover
-Type: impl · Packages: `internal/tui` · Spec: §8.6 (takeover)
-Deliverables: read-only TUI (lock held) retries the lock on each data_version tick; when free, banner `"Editing is available · Enter to edit"`; while the banner shows, Enter in text editing or block selection takes the lock and switches to editing instead of its normal action (in a read-only TUI Enter changes nothing anyway); nothing changes without the keypress.
+### P2-15 · Edit here takeover
+Type: impl · Packages: `internal/server`, `internal/web` · Spec: §8.6 (takeover)
+Deliverables: a read-only tab's banner gets an `Edit here` action: seals the editing tab's typing, swaps roles, and shows a message in both. Nothing changes without the click or keypress.
 Acceptance criteria:
-- AC1 Holder exits → banner changes; nothing else changes until Enter → `TestTakeover_Banner`.
-- AC2 Enter takes the lock and editing works → `TestTakeover_Enter`.
+- AC1 `Edit here` makes this tab editable and the other read-only, with no lost typing → `edit here` (e2e).
 
 ### P2-16 · History view
-Type: impl · Packages: `internal/tui`, `internal/core` · Depends on: P2-03, P1-07 · Spec: §8.2 (History view), §5.6
-Deliverables: per P2-03: full-screen view; node versions (from ops touching the node) with restore-a-version (a new change set setting the fields to that version's values); change sets by time and source with revert (`PlanRevert`, skipped-fields message).
+Type: impl · Packages: `internal/server`, `internal/web`, `internal/core` · Depends on: P2-03, P1-07 · Spec: §8.2 (History view), §5.6
+Deliverables: per P2-03: full-page view; node versions (from ops touching the node) with restore-a-version (a new change set setting the fields to that version's values); change sets by time and source with revert (`PlanRevert`, skipped-fields message).
 Acceptance criteria: per P2-03 mockups, at minimum:
-- AC1 A node's past texts are listed newest first; restoring one creates a change set → `TestHistory_NodeVersions`.
-- AC2 Reverting a CLI change set from the list leaves later TUI changes intact → `TestHistory_Revert`.
-
-### P2-17 · Mouse
-Type: impl · Packages: `internal/tui` · Depends on: P2-03, P2-06 · Spec: §6.5
-Deliverables: mouse capture when `mouse=true`; wheel scroll; click places the cursor (text editing, via `layout.CellToOffset`); click on a glyph toggles collapse; click on a tag filters; overlays clickable; no drag-to-move; docs mention Shift+drag.
-Acceptance criteria:
-- AC1 Click on text places the cursor at the clicked grapheme (wide chars) → `TestMouse_ClickText`.
-- AC2 Click on `▸` expands → `TestMouse_ClickGlyph`.
-- AC3 `mouse=false` disables capture → `TestMouse_Disabled`.
-
-### P2-18 · Built-in page editor
-Type: impl · Packages: `internal/tui`, `internal/layout` · Spec: §5.7 (edit mode), §6.4 (page edit), §9.1 (shared engine)
-Deliverables: multi-line plain text editor on the `layout` engine (same cursor, selection, word, clipboard and wrap-marker keys as text editing; Enter newline; Tab inserts two spaces); syntax highlighting without concealment (headings bold in accent, markers dimmed, code blocks tinted, links underlined) via a lightweight line-based highlighter; title line `# Title` handling identical to P1-19 on leaving edit mode; typing coalescing per page (seal rules of §7.3 applied to `edit_page`); `e` opens it, `E` opens `$EDITOR`; Esc returns to view mode; new page from `p` opens edit mode.
-Acceptance criteria:
-- AC1 Editing and Esc saves one undoable `edit_page` change set; title edits rename → `TestPageEdit_Save`.
-- AC2 All text-editing movement keys work across lines → `TestPageEdit_Keys` (tagged `@page_edit`).
-- AC3 Highlighting golden → `TestPageEdit_Highlight`.
-- AC4 `E` opens `$EDITOR` → `TestPageEdit_ExternalE`.
+- AC1 A node's past texts are listed newest first; restoring one creates a change set → `history node versions` (e2e).
+- AC2 Reverting a CLI change set from the list leaves later UI changes intact → `history revert` (e2e).
 
 ### P2-19 · Mode switching with position sync; split view
-Type: impl · Packages: `internal/tui`, `internal/tui/pageview` · Depends on: P2-18 · Spec: §5.7 (switching, split view), §13 (`split_view_min_width`)
-Deliverables: switching view↔edit keeps the same block on screen using pageview source ranges; `s` toggles split view (source left, rendered right, live update while typing). Split view uses the full terminal width with a 2-column gutter on each side, two equal panes, each capped at `column_width`; record this as a D-entry; `split_view_min_width` opens split by default at or above that width.
+Type: impl · Packages: `internal/web`, `internal/server/pageview` · Spec: §5.7 (switching, split view), §13 (`split_view_min_width`)
+Deliverables: switching view↔edit keeps the same block on screen using pageview source ranges; `s` toggles split view (source left, rendered right, live update while typing). Split view uses the full window width with two equal panes, each capped at `column_width`; record this as a D-entry; `split_view_min_width` opens split by default at or above that width.
 Acceptance criteria:
-- AC1 Scrolled to the 5th heading in view mode, `e` puts the cursor on that heading's source line → `TestPageSwitch_PositionSync`.
-- AC2 Split view updates the rendered side as you type → `TestSplitView_Live` (golden).
-- AC3 `split_view_min_width = 160` at 200 columns opens split → `TestSplitView_Default`.
+- AC1 Scrolled to the 5th heading in view mode, `e` puts the cursor on that heading's source line → `page position sync` (e2e).
+- AC2 Split view updates the rendered side as you type → `split view live` (e2e).
+- AC3 `split_view_min_width = 1600` in a 2000 px window opens split → `split view default` (e2e).
 
 ### P2-20 · Sort children
-Type: impl · Packages: `internal/core`, `internal/tui` · Spec: §6.6
+Type: impl · Packages: `internal/core`, `internal/server` · Spec: §6.6
 Deliverables: palette-only "Sort children": alphabetical by folded plain text, completed last, one change set of `move` ops (only nodes whose position changes).
 Acceptance criteria: `TestSortChildren` (order, completed last, undo restores order).
 
@@ -194,8 +177,8 @@ Deliverables (adjust per P2-01): `hyphal tag list --json` (tag, count, color), `
 Acceptance criteria: JSON goldens → `TestCLI_Tag_*`.
 
 ### P2-22 · Parity suite for Phase 2 rows
-Type: impl · Packages: `internal/tui` (tests) · Spec: §3 (Phase 2 rows)
-Deliverables: `TestParity_Tags`, `TestParity_NodeLinks`, `TestParity_SearchOperators`, `TestParity_StarredLocations`; the interaction-matrix meta-test now includes Phase 2 bindings.
+Type: impl · Packages: `e2e/` · Spec: §3 (Phase 2 rows)
+Deliverables: `parity tags`, `parity node links`, `parity search operators`, `parity starred locations`; the interaction-matrix meta-test now includes Phase 2 bindings.
 
 ### P2-23 · Phase 2 gate
 Type: gate · Depends on: all Phase 2 cards

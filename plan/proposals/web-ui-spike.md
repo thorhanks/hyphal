@@ -1,6 +1,6 @@
 # Proposal: replace the TUI with a local web UI
 
-Status: spike proposed, 2026-10-31. Nothing in `SPEC.md` or the phase files changes until the human accepts the outcome.
+Status: accepted 2026-10-31. Thor chose Go and asked for a total rewrite with native web components only. SPEC v4 and the phase files now carry this; this file is history.
 
 ## Direction
 
