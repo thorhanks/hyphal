@@ -25,6 +25,7 @@ type Outline struct {
 	tree   *Tree
 	opts   OutlineOptions
 	typing *Typing // nil when no typing is open (§7.3)
+	undo   UndoStack
 }
 
 // OpenOutline loads the outline from db.
@@ -78,16 +79,30 @@ func (o *Outline) Do(ctx context.Context, p Plan) (model.ChangeSetID, error) {
 	return o.commit(ctx, p)
 }
 
-// commit writes a plan and applies it to the tree. Once written, any open typing
-// is over: only seal gets here with one, since Do seals first.
+// commit writes a plan and applies it to the tree. A change from the UI becomes
+// an undo step and clears redo (§5.6).
 func (o *Outline) commit(ctx context.Context, p Plan) (model.ChangeSetID, error) {
-	res, err := o.db.Commit(ctx, *p.ChangeSet, nil, nil)
+	cs, err := o.write(ctx, p)
 	if err != nil {
 		return "", err
 	}
+	if o.opts.Source == "ui" {
+		o.undo.push(cs, p.CursorBefore)
+	}
+	return cs.ID, nil
+}
+
+// write commits a plan and applies it to the tree, and returns the change set as
+// recorded. Once written, any open typing is over: only seal gets here with one,
+// since every other caller seals first.
+func (o *Outline) write(ctx context.Context, p Plan) (model.ChangeSet, error) {
+	res, err := o.db.Commit(ctx, *p.ChangeSet, nil, nil)
+	if err != nil {
+		return model.ChangeSet{}, err
+	}
 	o.typing = nil
 	if err := o.tree.Apply(res.ChangeSet); err != nil {
-		return "", fmt.Errorf("commit landed but the tree can't follow: %w", err)
+		return model.ChangeSet{}, fmt.Errorf("commit landed but the tree can't follow: %w", err)
 	}
-	return res.ChangeSet.ID, nil
+	return res.ChangeSet, nil
 }

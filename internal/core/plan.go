@@ -20,6 +20,9 @@ type Plan struct {
 	NoOp      bool
 	Hint      string // message text for a no-op (§4.5)
 	Message   string // confirmation message (§4.5)
+
+	CursorBefore any       // where the cursor was, for undo to restore (§5.6)
+	Skipped      []Skipped // fields a revert or undo left alone (§8.2)
 }
 
 // Ctx is what a planner works from (ARCHITECTURE §4.3).

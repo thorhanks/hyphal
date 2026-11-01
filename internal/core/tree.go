@@ -176,6 +176,9 @@ func (t *Tree) applyOp(op model.Op, at model.Time, csID model.ChangeSetID) error
 		if op.Kind == model.OpDelete {
 			t.detach(n)
 			n.DeletedAt, n.DeletedBy = &at, csID
+			if a.DeletedAt != nil && a.DeletedBy != nil { // back into its deletion (A-007)
+				n.DeletedAt, n.DeletedBy = a.DeletedAt, *a.DeletedBy
+			}
 		} else {
 			n.DeletedAt, n.DeletedBy = nil, ""
 			t.attach(n)

@@ -550,3 +550,82 @@ func TestCommit_DeleteAndRestoreSubtree(t *testing.T) {
 	mustCommit(t, db, set(deleteOp(t, child)))
 	mustCommit(t, db, set(kindOp(t, child, model.OpMove, model.MoveFields{ParentID: root, Position: "a2"}), restoreOp(t, child)))
 }
+
+func TestCommit_DeleteKeepsItsNamedDeletion(t *testing.T) {
+	ctx := context.Background()
+	db, root := commitDB(t)
+	a := ids.NewNode()
+	mustCommit(t, db, set(insertOp(t, a, root, "a1", "a")))
+	first := mustCommit(t, db, set(deleteOp(t, a)))
+	restored := mustCommit(t, db, model.ChangeSet{At: *at(t1), Source: "ui", Ops: []model.Op{model.Inverse(first.ChangeSet.Ops[0])}})
+	again := mustCommit(t, db, model.ChangeSet{At: *at(t1), Source: "ui", Ops: []model.Op{model.Inverse(restored.ChangeSet.Ops[0])}})
+
+	d, err := db.LoadAll(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range d.Nodes {
+		if n.ID == a && (n.DeletedBy != first.ChangeSet.ID || n.DeletedAt.String() != at(t0).String()) {
+			t.Errorf("node: %+v, want deletion %s", n, first.ChangeSet.ID)
+		}
+	}
+	after, err := again.ChangeSet.Ops[0].DecodeAfter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := after.(*model.DeleteFields); *f.DeletedBy != first.ChangeSet.ID {
+		t.Errorf("recorded after: %+v", f)
+	}
+
+	half := kindOp(t, a, model.OpRestore, model.DeleteFields{})
+	mustCommit(t, db, set(half))
+	by := first.ChangeSet.ID
+	bad := kindOp(t, a, model.OpDelete, model.DeleteFields{Deleted: true, DeletedBy: &by})
+	if _, err := db.Commit(ctx, set(bad), nil, nil); !errors.Is(err, ErrInvalid) {
+		t.Errorf("half a deletion: %v", err)
+	}
+}
+
+func TestCommit_TrashedNodeMovesUnderTrashedParent(t *testing.T) {
+	ctx := context.Background()
+	db, root := commitDB(t)
+	a, b, c := ids.NewNode(), ids.NewNode(), ids.NewNode()
+	mustCommit(t, db, set(insertOp(t, a, root, "a1", "a"), insertOp(t, b, root, "a2", "b"), insertOp(t, c, root, "a3", "c")))
+	mustCommit(t, db, set(deleteOp(t, a), deleteOp(t, b)))
+	move := func(id, parent model.NodeID) model.ChangeSet {
+		return set(kindOp(t, id, model.OpMove, model.MoveFields{ParentID: parent, Position: "a5"}))
+	}
+	mustCommit(t, db, move(b, a))
+	if _, err := db.Commit(ctx, move(c, a), nil, nil); !errors.Is(err, ErrInvalid) {
+		t.Errorf("live node under trashed parent: %v", err)
+	}
+	if _, err := db.Commit(ctx, move(b, ids.NewNode()), nil, nil); !errors.Is(err, ErrInvalid) {
+		t.Errorf("missing parent: %v", err)
+	}
+}
+
+func TestChangeSetByID(t *testing.T) {
+	ctx := context.Background()
+	db, root := commitDB(t)
+	a := ids.NewNode()
+	first := mustCommit(t, db, set(insertOp(t, a, root, "a1", "a")))
+	cs := set(kindOp(t, a, model.OpEditText, model.TextFields{Text: "b"}), kindOp(t, a, model.OpEditPage, model.PageFields{Markdown: "p"}))
+	cs.Description, cs.UndoOf = "two ops", first.ChangeSet.ID
+	want := mustCommit(t, db, cs).ChangeSet
+
+	got, err := db.ChangeSetByID(ctx, want.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Description != "two ops" || got.UndoOf != first.ChangeSet.ID || got.Source != "ui" || got.At.String() != want.At.String() || len(got.Ops) != 2 {
+		t.Fatalf("got %+v", got)
+	}
+	for i, op := range got.Ops {
+		if op.NodeID != want.Ops[i].NodeID || op.Kind != want.Ops[i].Kind || string(op.Before) != string(want.Ops[i].Before) || string(op.After) != string(want.Ops[i].After) {
+			t.Errorf("op %d: %+v, want %+v", i, op, want.Ops[i])
+		}
+	}
+	if _, err := db.ChangeSetByID(ctx, ids.NewChangeSet()); !errors.Is(err, ErrNotFound) {
+		t.Errorf("missing: %v", err)
+	}
+}

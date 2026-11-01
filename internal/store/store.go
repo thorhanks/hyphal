@@ -45,6 +45,8 @@ var (
 	ErrConflict = errors.New("version conflict")
 	// ErrInvalid means a commit would break a tree invariant (CONTRACTS §4, §8).
 	ErrInvalid = errors.New("invalid change")
+	// ErrNotFound means a change set doesn't exist (CONTRACTS §7.2).
+	ErrNotFound = errors.New("not found")
 	// ErrBusy means another writer held the database past the busy timeout (§8.6).
 	ErrBusy = errors.New("database is busy")
 )

@@ -368,8 +368,10 @@ func (c committer) applyInsert(id model.NodeID, a *model.InsertFields) error {
 	return err
 }
 
-// applyDelete trashes one node, stamped with this change set whatever the op
-// says, and fills those values into a for recording (CONTRACTS §4, D-008, D-049).
+// applyDelete trashes one node and fills the deletion into a for recording. A
+// delete that names no deletion is stamped with this change set (CONTRACTS §4,
+// D-008, D-049). One that names its own came from inverting a restore, and goes
+// back into that deletion (CONTRACTS §5, A-007).
 func (c committer) applyDelete(id model.NodeID, cur row, a *model.DeleteFields) (any, error) {
 	if !a.Deleted {
 		return nil, invalidf("a delete must set deleted")
@@ -387,9 +389,14 @@ func (c committer) applyDelete(id model.NodeID, cur row, a *model.DeleteFields) 
 	if a.MergedInto != nil && !ids.Valid(string(*a.MergedInto)) {
 		return nil, invalidf("merged_into %q", *a.MergedInto)
 	}
-	a.DeletedAt, a.DeletedBy = &c.at, &c.cs
+	if (a.DeletedAt == nil) != (a.DeletedBy == nil) {
+		return nil, invalidf("deleted_at and deleted_by disagree")
+	}
+	if a.DeletedAt == nil {
+		a.DeletedAt, a.DeletedBy = &c.at, &c.cs
+	}
 	_, err := c.tx.ExecContext(c.ctx, `UPDATE nodes SET deleted_at = ?, deleted_by = ?, version = version + 1 WHERE id = ?`,
-		c.at.String(), string(c.cs), string(id))
+		a.DeletedAt.String(), string(*a.DeletedBy), string(id))
 	return &model.DeleteFields{}, err
 }
 
@@ -414,13 +421,20 @@ func (c committer) applyRestore(id model.NodeID, cur row, a *model.DeleteFields,
 }
 
 // applyMove sets parent and position. A trashed node may move, so a restore can
-// place it under a live parent first (D-017).
+// place it under a live parent first (D-017), and undoing that can put it back
+// under a trashed one (A-007). A live node needs a live parent.
 func (c committer) applyMove(id model.NodeID, cur row, a *model.MoveFields) (any, error) {
 	if !fracindex.Valid(a.Position) {
 		return nil, invalidf("position %q", a.Position)
 	}
-	if err := c.checkLiveParent(a.ParentID); err != nil {
+	if cur.deletedAt == nil {
+		if err := c.checkLiveParent(a.ParentID); err != nil {
+			return nil, err
+		}
+	} else if _, found, err := c.loadRow(a.ParentID); err != nil {
 		return nil, err
+	} else if !found {
+		return nil, invalidf("parent %q doesn't exist", a.ParentID)
 	}
 	var cycle int
 	err := c.tx.QueryRowContext(c.ctx, `WITH RECURSIVE up(id) AS (
