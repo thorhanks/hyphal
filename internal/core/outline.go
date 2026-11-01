@@ -26,6 +26,7 @@ type Outline struct {
 	opts   OutlineOptions
 	typing *Typing // nil when no typing is open (§7.3)
 	undo   UndoStack
+	seq    int64 // the history position the tree reflects (store.HistorySeq)
 }
 
 // OpenOutline loads the outline from db.
@@ -43,7 +44,7 @@ func OpenOutline(ctx context.Context, db *store.DB, o OutlineOptions) (*Outline,
 	if err != nil {
 		return nil, fmt.Errorf("open outline: %w", err)
 	}
-	return &Outline{db: db, tree: NewTree(d), opts: o}, nil
+	return &Outline{db: db, tree: NewTree(d), opts: o, seq: d.Seq}, nil
 }
 
 // Tree returns the in-memory tree.
@@ -76,27 +77,28 @@ func (o *Outline) Do(ctx context.Context, p Plan) (model.ChangeSetID, error) {
 	if _, _, err := o.Seal(ctx); err != nil {
 		return "", err
 	}
-	return o.commit(ctx, p)
+	cs, err := o.commit(ctx, p)
+	return cs.ID, err
 }
 
 // commit writes a plan and applies it to the tree. A change from the UI becomes
 // an undo step and clears redo (§5.6).
-func (o *Outline) commit(ctx context.Context, p Plan) (model.ChangeSetID, error) {
-	cs, err := o.write(ctx, p)
+func (o *Outline) commit(ctx context.Context, p Plan, expect ...store.Expect) (model.ChangeSet, error) {
+	cs, err := o.write(ctx, p, expect...)
 	if err != nil {
-		return "", err
+		return model.ChangeSet{}, err
 	}
 	if o.opts.Source == "ui" {
 		o.undo.push(cs, p.CursorBefore)
 	}
-	return cs.ID, nil
+	return cs, nil
 }
 
 // write commits a plan and applies it to the tree, and returns the change set as
 // recorded. Once written, any open typing is over: only seal gets here with one,
 // since every other caller seals first.
-func (o *Outline) write(ctx context.Context, p Plan) (model.ChangeSet, error) {
-	res, err := o.db.Commit(ctx, *p.ChangeSet, nil, nil)
+func (o *Outline) write(ctx context.Context, p Plan, expect ...store.Expect) (model.ChangeSet, error) {
+	res, err := o.db.Commit(ctx, *p.ChangeSet, expect, nil)
 	if err != nil {
 		return model.ChangeSet{}, err
 	}
@@ -104,5 +106,29 @@ func (o *Outline) write(ctx context.Context, p Plan) (model.ChangeSet, error) {
 	if err := o.tree.Apply(res.ChangeSet); err != nil {
 		return model.ChangeSet{}, fmt.Errorf("commit landed but the tree can't follow: %w", err)
 	}
+	// A gap means another connection wrote first, so seq stays behind and refresh
+	// sees it.
+	if res.Seq == o.seq+1 {
+		o.seq = res.Seq
+	}
 	return res.ChangeSet, nil
+}
+
+// refresh reloads the tree if anyone else has written since it was loaded (§7.3).
+// Open typing must be sealed first.
+func (o *Outline) refresh(ctx context.Context) error {
+	seq, err := o.db.HistorySeq(ctx)
+	if err != nil || seq == o.seq {
+		return err
+	}
+	d, err := o.db.LoadAll(ctx)
+	if err != nil {
+		return err
+	}
+	pages := o.tree.PagesLoaded()
+	o.tree, o.seq = NewTree(d), d.Seq
+	if pages {
+		return o.LoadPages(ctx)
+	}
+	return nil
 }

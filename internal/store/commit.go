@@ -13,18 +13,21 @@ import (
 	"github.com/thorhanks/hyphal/internal/model"
 )
 
-// Expect is a version the caller requires of a node or page at commit (§7.3).
-// A missing row counts as version 0.
+// Expect is a version the caller requires at commit (§7.3): of a node, of its
+// page, or with History, of the whole history as HistorySeq reports it. A missing
+// row counts as version 0.
 type Expect struct {
 	NodeID  model.NodeID
 	Version int64
 	Page    bool
+	History bool
 }
 
 // CommitResult is what Commit recorded (§8.2).
 type CommitResult struct {
 	ChangeSet model.ChangeSet // as recorded: before values recomputed from the database
 	Stale     []model.NodeID  // nodes whose version differed from what the caller last saw, sorted
+	Seq       int64           // HistorySeq after this commit
 }
 
 // Commit applies a change set and writes its history in one transaction
@@ -65,6 +68,16 @@ func (db *DB) commit(ctx context.Context, cs model.ChangeSet, expect []Expect, s
 	c := committer{ctx: ctx, tx: tx, at: cs.At, cs: cs.ID}
 
 	for _, e := range expect {
+		if e.History {
+			seq, err := historySeq(ctx, tx)
+			if err != nil {
+				return CommitResult{}, err
+			}
+			if seq != e.Version {
+				return CommitResult{}, fmt.Errorf("%w: history is at %d, not %d", ErrConflict, seq, e.Version)
+			}
+			continue
+		}
 		version, err := c.currentVersion(e.NodeID, e.Page)
 		if err != nil {
 			return CommitResult{}, err
@@ -105,10 +118,14 @@ func (db *DB) commit(ctx context.Context, cs model.ChangeSet, expect []Expect, s
 		}
 		recorded.Ops = append(recorded.Ops, rec)
 	}
+	seq, err := historySeq(ctx, tx)
+	if err != nil {
+		return CommitResult{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return CommitResult{}, err
 	}
-	return CommitResult{ChangeSet: recorded, Stale: stale}, nil
+	return CommitResult{ChangeSet: recorded, Stale: stale, Seq: seq}, nil
 }
 
 func invalidf(format string, args ...any) error {
@@ -391,6 +408,9 @@ func (c committer) applyDelete(id model.NodeID, cur row, a *model.DeleteFields) 
 	}
 	if (a.DeletedAt == nil) != (a.DeletedBy == nil) {
 		return nil, invalidf("deleted_at and deleted_by disagree")
+	}
+	if a.DeletedBy != nil && !ids.Valid(string(*a.DeletedBy)) {
+		return nil, invalidf("deleted_by %q", *a.DeletedBy)
 	}
 	if a.DeletedAt == nil {
 		a.DeletedAt, a.DeletedBy = &c.at, &c.cs

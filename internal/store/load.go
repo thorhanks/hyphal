@@ -19,6 +19,7 @@ type Dump struct {
 	Collapsed map[model.NodeID]bool
 	UIState   map[string]json.RawMessage
 	Meta      map[string]string
+	Seq       int64 // HistorySeq when this was read
 }
 
 // LoadAll reads the outline in one read transaction, without page markdown so
@@ -35,6 +36,9 @@ func (db *DB) LoadAll(ctx context.Context) (*Dump, error) {
 		Collapsed: map[model.NodeID]bool{},
 		UIState:   map[string]json.RawMessage{},
 		Meta:      map[string]string{},
+	}
+	if d.Seq, err = historySeq(ctx, tx); err != nil {
+		return nil, fmt.Errorf("load history position: %w", err)
 	}
 	if d.Nodes, err = loadNodes(ctx, tx); err != nil {
 		return nil, fmt.Errorf("load nodes: %w", err)

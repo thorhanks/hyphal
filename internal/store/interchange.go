@@ -10,6 +10,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/thorhanks/hyphal/internal/fracindex"
 	"github.com/thorhanks/hyphal/internal/ids"
@@ -125,6 +126,9 @@ func exportedMeta(key string) bool {
 // ExportJSON writes the lossless JSON export, read at one moment, with arrays
 // sorted by primary key (§7.5, CONTRACTS §6). History is included only if asked.
 func (db *DB) ExportJSON(ctx context.Context, w io.Writer, withHistory bool, exportedBy string) error {
+	if db.readOnly == ReadOnlyNewerSchema {
+		return fmt.Errorf("export: %w: its schema is newer than this build, which would leave out what it doesn't know", ErrReadOnly)
+	}
 	f, err := db.readExport(ctx, withHistory)
 	if err != nil {
 		return fmt.Errorf("export: %w", err)
@@ -138,6 +142,12 @@ func (db *DB) ExportJSON(ctx context.Context, w io.Writer, withHistory bool, exp
 		return fmt.Errorf("export: %w", err)
 	}
 	return nil
+}
+
+// unexportable refuses text JSON can't carry, since encoding it would silently
+// change the bytes (§7.5).
+func unexportable(what, id string) error {
+	return fmt.Errorf("%s %s holds invalid UTF-8, which an export would change", what, id)
 }
 
 func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, error) {
@@ -173,6 +183,9 @@ func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, er
 		var n exportNode
 		err := rows.Scan(&n.ID, &n.ParentID, &n.Position, &n.Text, &n.IsTask, &n.IsHeading, &n.CompletedAt,
 			&n.CreatedAt, &n.UpdatedAt, &n.Version, &n.DeletedAt, &n.DeletedBy)
+		if err == nil && !utf8.ValidString(n.Text) {
+			return unexportable("node", n.ID)
+		}
 		f.Nodes = append(f.Nodes, n)
 		return err
 	}); err != nil {
@@ -181,6 +194,9 @@ func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, er
 	if err := eachRow(ctx, tx, `SELECT node_id, markdown, updated_at, version FROM pages ORDER BY node_id`, func(rows *sql.Rows) error {
 		var p exportPage
 		err := rows.Scan(&p.NodeID, &p.Markdown, &p.UpdatedAt, &p.Version)
+		if err == nil && !utf8.ValidString(p.Markdown) {
+			return unexportable("page", p.NodeID)
+		}
 		f.Pages = append(f.Pages, p)
 		return err
 	}); err != nil {
@@ -205,7 +221,9 @@ func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, er
 	if err := eachRow(ctx, tx, `SELECT key, value FROM ui_state ORDER BY key`, func(rows *sql.Rows) error {
 		var key, value string
 		err := rows.Scan(&key, &value)
-		f.UIState = append(f.UIState, exportUI{key, json.RawMessage(value)})
+		if err == nil && json.Valid([]byte(value)) { // a damaged cursor or zoom isn't worth losing an export
+			f.UIState = append(f.UIState, exportUI{key, json.RawMessage(value)})
+		}
 		return err
 	}); err != nil {
 		return nil, err
@@ -233,6 +251,9 @@ func readHistory(ctx context.Context, tx *sql.Tx) (*exportHistory, error) {
 		var before, after sql.NullString
 		err := rows.Scan(&o.ID, &o.ChangeSetID, &o.NodeID, &o.Kind, &before, &after)
 		o.Before, o.After = rawOrNull(before), rawOrNull(after)
+		if err == nil && (!json.Valid(o.Before) || !json.Valid(o.After)) {
+			return fmt.Errorf("op %d holds invalid JSON; export without history leaves it out", o.ID)
+		}
 		h.Ops = append(h.Ops, o)
 		return err
 	})
@@ -344,8 +365,10 @@ func checkUnique[K comparable](table string, seen map[K]bool, id K) error {
 // validateExport checks the file against CONTRACTS §6 and the invariants of §8,
 // and compacts its embedded JSON.
 func validateExport(f *exportFile) error {
-	if f.SchemaVersion < 1 || f.SchemaVersion > knownVersion() {
-		return parsef("schema_version %d is not known", f.SchemaVersion)
+	// Rows are written as they are, so they must already fit this schema. Older
+	// exports need the migrations applied to them when a schema 2 arrives.
+	if f.SchemaVersion != knownVersion() {
+		return parsef("schema_version %d is not this build's %d", f.SchemaVersion, knownVersion())
 	}
 	if got := f.Meta["format_id"]; got != formatID {
 		return parsef("meta.format_id is %q, not %q", got, formatID)

@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -10,8 +9,8 @@ import (
 )
 
 // WriteFileAtomic writes a file through write, into a temp file beside path
-// that is synced and then renamed over it, with mode perm (§7.5). If anything
-// fails, an existing file at path is untouched and no temp file remains.
+// that is synced and then renamed over it, with mode perm (§7.5). If it returns
+// an error, an existing file at path is untouched and no temp file remains.
 func WriteFileAtomic(path string, perm fs.FileMode, write func(io.Writer) error) (err error) {
 	dir := filepath.Dir(path)
 	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp*") // created 0600
@@ -40,14 +39,18 @@ func WriteFileAtomic(path string, perm fs.FileMode, write func(io.Writer) error)
 	if err := os.Rename(f.Name(), path); err != nil {
 		return err
 	}
-	return syncDir(dir)
+	syncDir(dir)
+	return nil
 }
 
-// syncDir makes a rename in dir durable.
-func syncDir(dir string) error {
+// syncDir makes a rename in dir durable where it can. The file is already
+// complete and in place, and some filesystems can't sync a directory, so a
+// failure here isn't a failed write.
+func syncDir(dir string) {
 	d, err := os.Open(dir)
 	if err != nil {
-		return err
+		return
 	}
-	return errors.Join(d.Sync(), d.Close())
+	_ = d.Sync()
+	_ = d.Close()
 }

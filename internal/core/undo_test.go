@@ -451,3 +451,111 @@ func TestRevert_PurgedNode(t *testing.T) {
 		t.Error("b wasn't reverted")
 	}
 }
+
+func cliOn(t *testing.T, db *store.DB) *core.Outline {
+	t.Helper()
+	o, err := core.OpenOutline(context.Background(), db, core.OutlineOptions{Source: "cli", Sync: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return o
+}
+
+// A change from another connection is skipped even though this tree hasn't seen
+// it (§5.6, §8.2).
+func TestUndo_SkipsChangeFromOtherConnection(t *testing.T) {
+	ctx := context.Background()
+	t.Run("text", func(t *testing.T) {
+		db := testgen.TempDB(t)
+		o := uiOutline(t, db)
+		a, _ := insertNode(t, o, o.Tree().Root(), "old")
+		mustDo(t, o, core.PlanEditText(o.Ctx(), a, "mine"))
+		cli := cliOn(t, db)
+		mustDo(t, cli, core.PlanEditText(cli.Ctx(), a, "theirs"))
+
+		p, err := o.Undo(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !p.NoOp || len(p.Skipped) != 1 || p.Skipped[0].Field != "text" {
+			t.Fatalf("plan: %+v", p)
+		}
+		if got := textOf(t, o, a); got != "theirs" {
+			t.Errorf("tree text %q", got)
+		}
+		fresh := cliOn(t, db)
+		if got := textOf(t, fresh, a); got != "theirs" {
+			t.Errorf("stored text %q", got)
+		}
+	})
+	t.Run("star, which bumps no version", func(t *testing.T) {
+		db := testgen.TempDB(t)
+		o := uiOutline(t, db)
+		a, _ := insertNode(t, o, o.Tree().Root(), "a")
+		id := mustDo(t, o, core.PlanSetStar(o.Ctx(), []model.NodeID{a}, true))
+		cli := cliOn(t, db)
+		mustDo(t, cli, core.PlanSetStar(cli.Ctx(), []model.NodeID{a}, false))
+		p, err := o.Revert(ctx, id)
+		if err != nil || !p.NoOp || len(p.Skipped) != 1 {
+			t.Fatalf("%+v, %v", p, err)
+		}
+	})
+	t.Run("a write between this outline's own writes", func(t *testing.T) {
+		db := testgen.TempDB(t)
+		o := uiOutline(t, db)
+		a, _ := insertNode(t, o, o.Tree().Root(), "a")
+		b, _ := insertNode(t, o, o.Tree().Root(), "b")
+		cli := cliOn(t, db)
+		mustDo(t, cli, core.PlanEditText(cli.Ctx(), a, "theirs"))
+		mustDo(t, o, core.PlanEditText(o.Ctx(), b, "mine")) // leaves the tree behind on a
+		edit, err := o.Undo(ctx)
+		if err != nil || edit.NoOp {
+			t.Fatalf("%+v, %v", edit, err)
+		}
+		if got := textOf(t, o, a); got != "theirs" {
+			t.Errorf("a is %q; the undo should have reloaded", got)
+		}
+	})
+}
+
+func TestUndo_CursorBefore(t *testing.T) {
+	ctx := context.Background()
+	db := testgen.TempDB(t)
+	o := uiOutline(t, db)
+	a, _ := insertNode(t, o, o.Tree().Root(), "a")
+	p := core.PlanEditText(o.Ctx(), a, "b")
+	p.CursorBefore = "here"
+	mustDo(t, o, p)
+
+	undo, err := o.Undo(ctx)
+	if err != nil || undo.CursorBefore != "here" {
+		t.Errorf("undo cursor %v, %v", undo.CursorBefore, err)
+	}
+	redo, err := o.Redo(ctx)
+	if err != nil || redo.CursorBefore != nil {
+		t.Errorf("redo cursor %v, %v", redo.CursorBefore, err)
+	}
+	cli := cliOn(t, db)
+	mustDo(t, cli, core.PlanEditText(cli.Ctx(), a, "theirs"))
+	skipped, err := o.Undo(ctx)
+	if err != nil || !skipped.NoOp || skipped.CursorBefore != nil {
+		t.Errorf("skipped undo: %+v, %v", skipped, err)
+	}
+}
+
+func TestRevert_ReturnsRecordedChangeSet(t *testing.T) {
+	ctx := context.Background()
+	o := uiOutline(t, testgen.TempDB(t))
+	_, id := insertNode(t, o, o.Tree().Root(), "a")
+	p, err := o.Revert(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := p.ChangeSet.Ops[0].DecodeAfter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := after.(*model.DeleteFields); f.DeletedBy == nil || *f.DeletedBy != p.ChangeSet.ID {
+		t.Errorf("after: %+v", f)
+	}
+}

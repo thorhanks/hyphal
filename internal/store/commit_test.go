@@ -584,6 +584,11 @@ func TestCommit_DeleteKeepsItsNamedDeletion(t *testing.T) {
 	if _, err := db.Commit(ctx, set(bad), nil, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("half a deletion: %v", err)
 	}
+	nope := model.ChangeSetID("NOPE")
+	bogus := kindOp(t, a, model.OpDelete, model.DeleteFields{Deleted: true, DeletedAt: at(t0), DeletedBy: &nope})
+	if _, err := db.Commit(ctx, set(bogus), nil, nil); !errors.Is(err, ErrInvalid) {
+		t.Errorf("bad deleted_by: %v", err)
+	}
 }
 
 func TestCommit_TrashedNodeMovesUnderTrashedParent(t *testing.T) {

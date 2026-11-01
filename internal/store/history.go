@@ -9,6 +9,19 @@ import (
 	"github.com/thorhanks/hyphal/internal/model"
 )
 
+// HistorySeq returns a number that changes whenever anyone writes a change set,
+// from any connection (§8.2). Every change to the outline writes one, stars
+// included, so it says whether a tree loaded earlier is still current.
+func (db *DB) HistorySeq(ctx context.Context) (int64, error) {
+	return historySeq(ctx, db.sql)
+}
+
+func historySeq(ctx context.Context, q querier) (int64, error) {
+	var seq int64
+	err := q.QueryRowContext(ctx, `SELECT coalesce(max(rowid), 0) FROM change_sets`).Scan(&seq)
+	return seq, err
+}
+
 // ChangeSetByID reads one change set with its ops in order, or returns
 // ErrNotFound (§8.2).
 func (db *DB) ChangeSetByID(ctx context.Context, id model.ChangeSetID) (model.ChangeSet, error) {

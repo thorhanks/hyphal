@@ -60,7 +60,8 @@ Row rules enforced by `store.Commit`:
 - Root: `parent_id IS NULL`; text is `""` (display name "Home" is UI-only); never moved, deleted, completed, starred, or given a page.
 - `updated_at = change_set.at` when an op of kind `edit_text`, `edit_page`, `set_task`, `set_heading` or `set_complete` touches the node; not for `move`, `set_star`, `delete`, `restore` (§7.2).
 - `nodes.version += 1` on every op that writes the node row (`insert` sets 1; `edit_text`, `move`, `set_task`, `set_heading`, `set_complete`, `delete`, `restore`). `edit_page` bumps `pages.version` (insert = 1) and also bumps `nodes.version` (D-006). `set_star` bumps nothing.
-- `delete` sets `deleted_at = change_set.at`, `deleted_by = change_set.id` on the op's node (one op per node, D-008).
+- `delete` sets `deleted_at = change_set.at`, `deleted_by = change_set.id` on the op's node (one op per node, D-008), unless the op names a deletion, as the inverse of a `restore` does (§5); it then goes back into that deletion (A-007).
+- A trashed node may move under an existing parent, live or trashed; a live node needs a live parent (A-003, A-007).
 - Live nodes never have a trashed or missing parent; no cycles.
 
 ## 5. Op payloads (§8.2)

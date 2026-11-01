@@ -168,7 +168,7 @@ func (db *DB) DataVersion(ctx) (int64, error)        // PRAGMA data_version on a
 func (db *DB) Meta(ctx, key) (string, bool, error)
 
 // Writes with history (§7.3, §8.2). One SQLite transaction.
-type Expect struct { NodeID model.NodeID; Version int64; Page bool } // --if-version (§7.3)
+type Expect struct { NodeID model.NodeID; Version int64; Page, History bool } // --if-version (§7.3); History compares HistorySeq (A-008)
 type CommitResult struct {
     ChangeSet model.ChangeSet  // as recorded: Before values recomputed from the database
     Stale     []model.NodeID   // nodes whose version differed from what the caller last saw (for messages)

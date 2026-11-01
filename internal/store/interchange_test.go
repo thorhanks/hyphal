@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/thorhanks/hyphal/internal/ids"
+	"github.com/thorhanks/hyphal/internal/model"
 )
 
 const (
@@ -373,5 +374,87 @@ func TestImportJSON_Invalid(t *testing.T) {
 	found, err := filepath.Glob(filepath.Join(filepath.Dir(db.Path()), "snapshots", "*"))
 	if err != nil || len(found) != 0 {
 		t.Errorf("an invalid file took a snapshot: %v, %v", found, err)
+	}
+}
+
+func TestExportJSON_DamagedRows(t *testing.T) {
+	ctx := context.Background()
+	exec := func(t *testing.T, db *DB, q string, args ...any) {
+		t.Helper()
+		if _, err := db.sql.Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Run("a bad ui_state row is left out", func(t *testing.T) {
+		db := fixtureDB(t)
+		exec(t, db, `UPDATE ui_state SET value = '{oops' WHERE key = 'zoom'`)
+		out := exportBytes(t, db, true)
+		if strings.Contains(string(out), `"zoom"`) || !strings.Contains(string(out), fixC) {
+			t.Errorf("export:\n%s", out)
+		}
+	})
+	t.Run("a bad op fails only with history", func(t *testing.T) {
+		db := fixtureDB(t)
+		exec(t, db, `UPDATE ops SET after = '{oops' WHERE id = 2`)
+		exportBytes(t, db, false)
+		err := db.ExportJSON(ctx, &bytes.Buffer{}, true, "test")
+		if err == nil || !strings.Contains(err.Error(), "op 2") {
+			t.Errorf("got %v", err)
+		}
+	})
+	t.Run("invalid UTF-8 is refused by name", func(t *testing.T) {
+		db := fixtureDB(t)
+		exec(t, db, `UPDATE nodes SET text = CAST(x'ff41' AS TEXT) WHERE id = ?`, fixA)
+		if err := db.ExportJSON(ctx, &bytes.Buffer{}, false, "test"); err == nil || !strings.Contains(err.Error(), fixA) {
+			t.Errorf("node: %v", err)
+		}
+		exec(t, db, `UPDATE nodes SET text = 'ok' WHERE id = ?`, fixA)
+		exec(t, db, `UPDATE pages SET markdown = CAST(x'ff41' AS TEXT) WHERE node_id = ?`, fixA)
+		if err := db.ExportJSON(ctx, &bytes.Buffer{}, false, "test"); err == nil || !strings.Contains(err.Error(), fixA) {
+			t.Errorf("page: %v", err)
+		}
+	})
+}
+
+func TestExportJSON_NewerSchemaRefuses(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "outline.db")
+	if err := openNew(t, path).Close(); err != nil {
+		t.Fatal(err)
+	}
+	setVersion(t, path, knownVersion()+1)
+	db, err := Open(path, OpenOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := db.ExportJSON(context.Background(), &bytes.Buffer{}, false, "test"); !errors.Is(err, ErrReadOnly) {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestHistorySeq(t *testing.T) {
+	ctx := context.Background()
+	db, root := commitDB(t)
+	a := ids.NewNode()
+	start, err := db.HistorySeq(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := mustCommit(t, db, set(insertOp(t, a, root, "a1", "a")))
+	if res.Seq == start {
+		t.Error("a commit didn't move it")
+	}
+	if seq, err := db.HistorySeq(ctx); err != nil || seq != res.Seq {
+		t.Errorf("seq %d, commit said %d, %v", seq, res.Seq, err)
+	}
+	if d, err := db.LoadAll(ctx); err != nil || d.Seq != res.Seq {
+		t.Errorf("dump: %v", err)
+	}
+	star := set(kindOp(t, a, model.OpSetStar, model.StarFields{StarredAt: at(t0)}))
+	if _, err := db.Commit(ctx, star, []Expect{{History: true, Version: start}}, nil); !errors.Is(err, ErrConflict) {
+		t.Errorf("stale history: %v", err)
+	}
+	if _, err := db.Commit(ctx, star, []Expect{{History: true, Version: res.Seq}}, nil); err != nil {
+		t.Errorf("current history: %v", err)
 	}
 }

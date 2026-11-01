@@ -84,11 +84,11 @@ func (o *Outline) seal(ctx context.Context, now time.Time) (model.ChangeSetID, b
 	}
 	c := o.Ctx()
 	c.Clock = func() time.Time { return now }
-	id, err := o.commit(ctx, c.changeSet(newOp(t.Node, model.OpEditText, model.TextFields{Text: t.Text})))
+	cs, err := o.commit(ctx, c.changeSet(newOp(t.Node, model.OpEditText, model.TextFields{Text: t.Text})))
 	if err != nil {
 		return "", false, err
 	}
-	return id, true, nil
+	return cs.ID, true, nil
 }
 
 // PendingTyping returns a copy of the open typing, or nil (§4.5).
