@@ -9,17 +9,31 @@ import (
 	"github.com/thorhanks/hyphal/internal/model"
 )
 
-// HistorySeq returns a number that changes whenever anyone writes a change set,
-// from any connection (§8.2). Every change to the outline writes one, stars
-// included, so it says whether a tree loaded earlier is still current.
+// epochShift keeps a history position's epoch clear of change set rowids.
+const epochShift = 40
+
+// HistorySeq returns a number that changes whenever anyone changes the outline,
+// from any connection (§8.2). A new change set adds 1, stars included. Rowids can
+// repeat after rows are removed, so whatever replaces or removes change sets calls
+// bumpHistoryEpoch (A-009).
 func (db *DB) HistorySeq(ctx context.Context) (int64, error) {
 	return historySeq(ctx, db.sql)
 }
 
 func historySeq(ctx context.Context, q querier) (int64, error) {
 	var seq int64
-	err := q.QueryRowContext(ctx, `SELECT coalesce(max(rowid), 0) FROM change_sets`).Scan(&seq)
+	err := q.QueryRowContext(ctx, `SELECT
+		(coalesce((SELECT CAST(value AS INTEGER) FROM meta WHERE key = 'last_history_epoch'), 0) << ?)
+		+ coalesce((SELECT max(rowid) FROM change_sets), 0)`, epochShift).Scan(&seq)
 	return seq, err
+}
+
+// bumpHistoryEpoch moves the history position so it can't match any earlier one.
+// The last_ prefix keeps the key local: it is never exported or imported.
+func bumpHistoryEpoch(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO meta (key, value) VALUES ('last_history_epoch', '1')
+		ON CONFLICT (key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`)
+	return err
 }
 
 // ChangeSetByID reads one change set with its ops in order, or returns

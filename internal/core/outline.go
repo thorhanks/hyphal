@@ -27,6 +27,8 @@ type Outline struct {
 	typing *Typing // nil when no typing is open (§7.3)
 	undo   UndoStack
 	seq    int64 // the history position the tree reflects (store.HistorySeq)
+
+	beforeInvert func() // test only: runs between planning an inverse and writing it
 }
 
 // OpenOutline loads the outline from db.

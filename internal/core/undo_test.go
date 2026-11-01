@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -557,5 +558,90 @@ func TestRevert_ReturnsRecordedChangeSet(t *testing.T) {
 	}
 	if f := after.(*model.DeleteFields); f.DeletedBy == nil || *f.DeletedBy != p.ChangeSet.ID {
 		t.Errorf("after: %+v", f)
+	}
+}
+
+// A write landing after planning makes the commit fail its history check, and
+// the undo plans again from the newer state (§8.2).
+func TestUndo_ConflictPlansAgain(t *testing.T) {
+	ctx := context.Background()
+	db := testgen.TempDB(t)
+	o := uiOutline(t, db)
+	a, _ := insertNode(t, o, o.Tree().Root(), "old")
+	mustDo(t, o, core.PlanEditText(o.Ctx(), a, "mine"))
+	cli := cliOn(t, db)
+	once := false
+	o.SetBeforeInvert(func() {
+		if !once {
+			once = true
+			mustDo(t, cli, core.PlanEditText(cli.Ctx(), a, "theirs"))
+		}
+	})
+	p, err := o.Undo(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.NoOp || len(p.Skipped) != 1 || p.Skipped[0].Field != "text" {
+		t.Fatalf("plan: %+v", p)
+	}
+	if got := textOf(t, cliOn(t, db), a); got != "theirs" {
+		t.Errorf("stored text %q", got)
+	}
+}
+
+func TestUndo_ConflictsRunOut(t *testing.T) {
+	ctx := context.Background()
+	db := testgen.TempDB(t)
+	o := uiOutline(t, db)
+	a, _ := insertNode(t, o, o.Tree().Root(), "old")
+	b, _ := insertNode(t, o, o.Tree().Root(), "other")
+	mustDo(t, o, core.PlanEditText(o.Ctx(), a, "mine"))
+	cli := cliOn(t, db)
+	n := 0
+	o.SetBeforeInvert(func() {
+		n++
+		mustDo(t, cli, core.PlanEditText(cli.Ctx(), b, fmt.Sprint("theirs ", n)))
+	})
+	if _, err := o.Undo(ctx); !errors.Is(err, store.ErrConflict) {
+		t.Fatalf("got %v", err)
+	}
+	// The step is still there.
+	o.SetBeforeInvert(nil)
+	p, err := o.Undo(ctx)
+	if err != nil || p.NoOp {
+		t.Fatalf("%+v, %v", p, err)
+	}
+	if got := textOf(t, o, a); got != "old" {
+		t.Errorf("text %q", got)
+	}
+}
+
+// The imported history has as many change sets as this outline saw, so only the
+// epoch tells them apart (A-009).
+func TestRevert_ReloadsAfterImport(t *testing.T) {
+	ctx := context.Background()
+	src := testgen.TempDB(t)
+	other := uiOutline(t, src)
+	imported, id := insertNode(t, other, other.Tree().Root(), "imported")
+	var file bytes.Buffer
+	if err := src.ExportJSON(ctx, &file, true, "test"); err != nil {
+		t.Fatal(err)
+	}
+
+	db := testgen.TempDB(t)
+	o := uiOutline(t, db)
+	insertNode(t, o, o.Tree().Root(), "mine")
+	if err := db.ImportJSON(ctx, &file, store.ImportReplace); err != nil {
+		t.Fatal(err)
+	}
+	p, err := o.Revert(ctx, id)
+	if err != nil || p.NoOp {
+		t.Fatalf("%+v, %v", p, err)
+	}
+	if n, ok := o.Tree().Node(imported); !ok || n.DeletedAt == nil {
+		t.Errorf("the outline didn't reload: %+v", n)
+	}
+	if o.Tree().Root() != other.Tree().Root() {
+		t.Error("the outline kept the old root")
 	}
 }

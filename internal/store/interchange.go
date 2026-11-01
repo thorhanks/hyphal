@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -26,6 +28,8 @@ var (
 	// ErrNotEmpty means a JSON import without --replace found a database holding
 	// more than Home (§7.5).
 	ErrNotEmpty = errors.New("database is not empty; --replace replaces its contents")
+	// ErrDamaged means a row can't be exported exactly (§7.5). Nothing was written.
+	ErrDamaged = errors.New("cannot export damaged data")
 	// ErrParse means an import file can't be read or breaks an invariant
 	// (CONTRACTS §6, §8). Nothing was changed.
 	ErrParse = errors.New("cannot import file")
@@ -125,16 +129,46 @@ func exportedMeta(key string) bool {
 
 // ExportJSON writes the lossless JSON export, read at one moment, with arrays
 // sorted by primary key (§7.5, CONTRACTS §6). History is included only if asked.
+// A row it can't carry exactly returns ErrDamaged, naming it, and writes nothing;
+// ExportJSONRepaired gets the rest out.
 func (db *DB) ExportJSON(ctx context.Context, w io.Writer, withHistory bool, exportedBy string) error {
+	f, err := db.prepareExport(ctx, withHistory, exportedBy)
+	if err != nil {
+		return err
+	}
+	if damage := f.repair(false); len(damage) > 0 {
+		return fmt.Errorf("export: %w: %s (%d in all)", ErrDamaged, damage[0], len(damage))
+	}
+	return writeExport(w, f)
+}
+
+// ExportJSONRepaired is the rescue for a damaged database: it replaces invalid
+// UTF-8 with U+FFFD, leaves out ui_state rows and ops holding invalid JSON, and
+// returns what it did to each, in a stable order. A scheduled export uses it, so
+// that one bad row doesn't stop backups (A-009).
+func (db *DB) ExportJSONRepaired(ctx context.Context, w io.Writer, withHistory bool, exportedBy string) ([]string, error) {
+	f, err := db.prepareExport(ctx, withHistory, exportedBy)
+	if err != nil {
+		return nil, err
+	}
+	damage := f.repair(true)
+	return damage, writeExport(w, f)
+}
+
+func (db *DB) prepareExport(ctx context.Context, withHistory bool, exportedBy string) (*exportFile, error) {
 	if db.readOnly == ReadOnlyNewerSchema {
-		return fmt.Errorf("export: %w: its schema is newer than this build, which would leave out what it doesn't know", ErrReadOnly)
+		return nil, fmt.Errorf("export: %w: its schema is newer than this build, which would leave out what it doesn't know", ErrReadOnly)
 	}
 	f, err := db.readExport(ctx, withHistory)
 	if err != nil {
-		return fmt.Errorf("export: %w", err)
+		return nil, fmt.Errorf("export: %w", err)
 	}
 	f.ExportedBy = exportedBy
 	f.ExportedAt = model.NewTime(db.opts.Clock()).String()
+	return f, nil
+}
+
+func writeExport(w io.Writer, f *exportFile) error {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false) // bullet text keeps its <red> tags readable
 	enc.SetIndent("", "  ")
@@ -144,10 +178,76 @@ func (db *DB) ExportJSON(ctx context.Context, w io.Writer, withHistory bool, exp
 	return nil
 }
 
-// unexportable refuses text JSON can't carry, since encoding it would silently
-// change the bytes (§7.5).
-func unexportable(what, id string) error {
-	return fmt.Errorf("%s %s holds invalid UTF-8, which an export would change", what, id)
+// repair lists what JSON can't carry exactly: encoding invalid UTF-8 would
+// silently change its bytes (§7.5), and invalid embedded JSON can't be written.
+// With fix set it also changes the file to what can be written.
+func (f *exportFile) repair(fix bool) []string {
+	var damage []string
+	text := func(what string, s *string) {
+		if s != nil && !utf8.ValidString(*s) {
+			damage = append(damage, what+" holds invalid UTF-8")
+			if fix {
+				*s = strings.ToValidUTF8(*s, "\uFFFD")
+			}
+		}
+	}
+	raw := func(what string, r json.RawMessage) (json.RawMessage, bool) {
+		if !json.Valid(r) {
+			damage = append(damage, what+" holds invalid JSON")
+			return r, false
+		}
+		if !utf8.Valid(r) {
+			damage = append(damage, what+" holds invalid UTF-8")
+			if fix {
+				r = bytes.ToValidUTF8(r, []byte("\uFFFD"))
+			}
+		}
+		return r, true
+	}
+	for _, key := range slices.Sorted(maps.Keys(f.Meta)) {
+		value := f.Meta[key]
+		text("meta "+strconv.Quote(key), &value)
+		f.Meta[key] = value
+	}
+	for i := range f.Nodes {
+		n := &f.Nodes[i]
+		text("node "+n.ID+" text", &n.Text)
+		text("node "+n.ID+" position", &n.Position)
+	}
+	for i := range f.Pages {
+		text("page "+f.Pages[i].NodeID, &f.Pages[i].Markdown)
+	}
+	ui := f.UIState[:0:0]
+	for _, u := range f.UIState {
+		what := "ui_state " + strconv.Quote(u.Key)
+		text(what+" key", &u.Key)
+		value, ok := raw(what, u.Value)
+		if ok || !fix {
+			u.Value = value
+			ui = append(ui, u)
+		}
+	}
+	f.UIState = ui
+	if f.History == nil {
+		return damage
+	}
+	for i := range f.History.ChangeSets {
+		c := &f.History.ChangeSets[i]
+		text("change set "+c.ID+" source", &c.Source)
+		text("change set "+c.ID+" description", c.Description)
+	}
+	ops := f.History.Ops[:0:0]
+	for _, o := range f.History.Ops {
+		what := fmt.Sprintf("op %d", o.ID)
+		before, okBefore := raw(what+" before", o.Before)
+		after, okAfter := raw(what+" after", o.After)
+		if (okBefore && okAfter) || !fix {
+			o.Before, o.After = before, after
+			ops = append(ops, o)
+		}
+	}
+	f.History.Ops = ops
+	return damage
 }
 
 func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, error) {
@@ -183,9 +283,6 @@ func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, er
 		var n exportNode
 		err := rows.Scan(&n.ID, &n.ParentID, &n.Position, &n.Text, &n.IsTask, &n.IsHeading, &n.CompletedAt,
 			&n.CreatedAt, &n.UpdatedAt, &n.Version, &n.DeletedAt, &n.DeletedBy)
-		if err == nil && !utf8.ValidString(n.Text) {
-			return unexportable("node", n.ID)
-		}
 		f.Nodes = append(f.Nodes, n)
 		return err
 	}); err != nil {
@@ -194,9 +291,6 @@ func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, er
 	if err := eachRow(ctx, tx, `SELECT node_id, markdown, updated_at, version FROM pages ORDER BY node_id`, func(rows *sql.Rows) error {
 		var p exportPage
 		err := rows.Scan(&p.NodeID, &p.Markdown, &p.UpdatedAt, &p.Version)
-		if err == nil && !utf8.ValidString(p.Markdown) {
-			return unexportable("page", p.NodeID)
-		}
 		f.Pages = append(f.Pages, p)
 		return err
 	}); err != nil {
@@ -221,9 +315,7 @@ func (db *DB) readExport(ctx context.Context, withHistory bool) (*exportFile, er
 	if err := eachRow(ctx, tx, `SELECT key, value FROM ui_state ORDER BY key`, func(rows *sql.Rows) error {
 		var key, value string
 		err := rows.Scan(&key, &value)
-		if err == nil && json.Valid([]byte(value)) { // a damaged cursor or zoom isn't worth losing an export
-			f.UIState = append(f.UIState, exportUI{key, json.RawMessage(value)})
-		}
+		f.UIState = append(f.UIState, exportUI{key, json.RawMessage(value)})
 		return err
 	}); err != nil {
 		return nil, err
@@ -251,9 +343,6 @@ func readHistory(ctx context.Context, tx *sql.Tx) (*exportHistory, error) {
 		var before, after sql.NullString
 		err := rows.Scan(&o.ID, &o.ChangeSetID, &o.NodeID, &o.Kind, &before, &after)
 		o.Before, o.After = rawOrNull(before), rawOrNull(after)
-		if err == nil && (!json.Valid(o.Before) || !json.Valid(o.After)) {
-			return fmt.Errorf("op %d holds invalid JSON; export without history leaves it out", o.ID)
-		}
 		h.Ops = append(h.Ops, o)
 		return err
 	})
@@ -280,6 +369,9 @@ func (db *DB) ImportJSON(ctx context.Context, r io.Reader, mode ImportMode) erro
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("import: %w", err)
+	}
+	if !utf8.Valid(data) { // JSON decoding would silently change the bytes
+		return parsef("the file holds invalid UTF-8")
 	}
 	f, err := parseExport(data)
 	if err != nil {
@@ -365,8 +457,9 @@ func checkUnique[K comparable](table string, seen map[K]bool, id K) error {
 // validateExport checks the file against CONTRACTS §6 and the invariants of §8,
 // and compacts its embedded JSON.
 func validateExport(f *exportFile) error {
-	// Rows are written as they are, so they must already fit this schema. Older
-	// exports need the migrations applied to them when a schema 2 arrives.
+	// Rows are written as they are, so they must already fit this schema. The first
+	// migration must make older exports import too (A-009);
+	// TestImportJSON_OlderSchemasStillLoad fails until it does.
 	if f.SchemaVersion != knownVersion() {
 		return parsef("schema_version %d is not this build's %d", f.SchemaVersion, knownVersion())
 	}
@@ -637,6 +730,9 @@ func (db *DB) writeImport(ctx context.Context, f *exportFile, mode ImportMode) e
 		}
 	}
 	if err := insertRows(ctx, tx, f); err != nil {
+		return fmt.Errorf("import: %w", err)
+	}
+	if err := bumpHistoryEpoch(ctx, tx); err != nil {
 		return fmt.Errorf("import: %w", err)
 	}
 	return tx.Commit()

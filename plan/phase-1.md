@@ -119,7 +119,7 @@ Acceptance criteria:
 ### P1-07 · Store: history queries and purge
 Type: impl · Packages: `internal/store` · Depends on: P0-08 · Spec: §8.2, §8.4, §10.2
 
-Deliverables: `ChangeSets(HistoryFilter{Source, Since, Until, NodeID, Limit, WithOps})` newest first; `ChangeSetByID`; `PurgeHistory(before)` deleting change sets with `at < before` and their ops (one transaction).
+Deliverables: `ChangeSets(HistoryFilter{Source, Since, Until, NodeID, Limit, WithOps})` newest first; `ChangeSetByID`; `PurgeHistory(before)` deleting change sets with `at < before` and their ops (one transaction). It calls `bumpHistoryEpoch` in that transaction (A-009).
 
 Acceptance criteria:
 - AC1 Filter by source `agent:claude` and by node → `TestChangeSets_Filter`.
@@ -137,7 +137,7 @@ Acceptance criteria:
 ### P1-09 · Store: snapshots
 Type: impl · Packages: `internal/store` · Depends on: P0-06, P1-05 · Spec: §8.5, §7.4 · CONTRACTS §9 · D-014
 
-Deliverables: `Snapshot(reason)` (backup API to `*.tmp`, `quick_check` on the copy, rename, 0600; on failure delete and return error), `SnapshotIfDue` (due when the newest good snapshot is > 24 h old **and** the outline changed since it — compare max `change_sets.at` with `meta.last_snapshot_at`), retention (`keep` per DB name; daily snapshots count toward keep; pre-* snapshots too — keep the newest N overall, D-014), `ListSnapshots`, `RestoreSnapshot(name)` (refuse with `ErrServerRunning` if another process holds the server lock; take `pre-restore` snapshot; copy the snapshot **into** the live DB with the backup API, never rename; record a change set with source `restore` and description `Restored snapshot <name>` and no ops; set a `meta` flag `restore_banner` = name so the UI can show the informational banner, §4.5).
+Deliverables: `Snapshot(reason)` (backup API to `*.tmp`, `quick_check` on the copy, rename, 0600; on failure delete and return error), `SnapshotIfDue` (due when the newest good snapshot is > 24 h old **and** the outline changed since it — compare max `change_sets.at` with `meta.last_snapshot_at`), retention (`keep` per DB name; daily snapshots count toward keep; pre-* snapshots too — keep the newest N overall, D-014), `ListSnapshots`, `RestoreSnapshot(name)` (after the copy, sets `meta.last_history_epoch` above its value before the restore, A-009; refuse with `ErrServerRunning` if another process holds the server lock; take `pre-restore` snapshot; copy the snapshot **into** the live DB with the backup API, never rename; record a change set with source `restore` and description `Restored snapshot <name>` and no ops; set a `meta` flag `restore_banner` = name so the UI can show the informational banner, §4.5).
 
 Acceptance criteria:
 - AC1 Snapshot passes quick_check and has mode 0600; failure leaves no file → `TestSnapshot_Verified`.
@@ -369,7 +369,7 @@ Acceptance criteria:
 ### P1-24 · `Outline` in server mode: undo with cursor, messages
 Type: impl · Packages: `internal/core` · Depends on: P1-23, P0-13 · Spec: §5.6
 
-Deliverables: `Outline` async mode wiring `Do` → `Tree.Apply` + `Committer.Submit` + undo push (optimistic; replaced by recorded ops on `Committed`; removed on `Rejected`); `Undo()`/`Redo()` return a `Plan` whose `Cursor` is the stored cursor-before and a `ZoomTo` when the affected nodes are outside the current zoom (§5.6), message `"Undid: <description>"` / `"Redid: <description>"` and, when fields were skipped, `"Undid: <description> · N fields changed elsewhere were kept"`; Undo seals typing first (§5.6); reload merging (`ApplyReload(dump)` keeps unsealed typing on top, §7.3).
+Deliverables: `Outline` async mode wiring `Do` → `Tree.Apply` + `Committer.Submit` + undo push (optimistic; replaced by recorded ops on `Committed`; removed on `Rejected`); `Undo()`/`Redo()` return a `Plan` whose `Cursor` is the stored cursor-before and a `ZoomTo` when the affected nodes are outside the current zoom (§5.6), message `"Undid: <description>"` / `"Redid: <description>"` and, when fields were skipped, `"Undid: <description> · N fields changed elsewhere were kept"`; Undo seals typing first (§5.6); reload merging (`ApplyReload(dump)` keeps unsealed typing on top, §7.3). Reload replaces `Outline.refresh`; `Do` and sealing still plan on a tree that may be behind until then (A-009), so keep undo's `Expect{History: true}` check.
 
 Acceptance criteria:
 - AC1 Ctrl+Z right after typing undoes the typing just done (seal first) → `TestUndo_SealsTypingFirst`.

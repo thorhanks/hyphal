@@ -42,9 +42,8 @@ func (o *Outline) Undo(ctx context.Context) (Plan, error) {
 	if len(o.undo.undo) == 0 {
 		return noOp("Nothing to undo"), nil
 	}
-	cursor := o.undo.undo[len(o.undo.undo)-1].CursorBefore
-	p, err := o.stepBack(ctx, &o.undo.undo, &o.undo.redo)
-	if err == nil && !p.NoOp {
+	p, cursor, err := o.stepBack(ctx, &o.undo.undo, &o.undo.redo)
+	if !p.NoOp {
 		p.CursorBefore = cursor // nothing changed on a no-op, so the cursor stays
 	}
 	return p, err
@@ -61,23 +60,24 @@ func (o *Outline) Redo(ctx context.Context) (Plan, error) {
 	if len(o.undo.redo) == 0 {
 		return noOp("Nothing to redo"), nil
 	}
-	return o.stepBack(ctx, &o.undo.redo, &o.undo.undo)
+	p, _, err := o.stepBack(ctx, &o.undo.redo, &o.undo.undo)
+	return p, err
 }
 
-// stepBack inverts the top of from and pushes the result on to. A step whose
-// fields have all changed since leaves from and goes nowhere. A failed commit
-// leaves both stacks alone.
-func (o *Outline) stepBack(ctx context.Context, from, to *[]UndoEntry) (Plan, error) {
+// stepBack inverts the top of from and pushes the result on to, and returns the
+// step's cursor. A step whose fields have all changed since leaves from and goes
+// nowhere. A failed commit leaves both stacks alone.
+func (o *Outline) stepBack(ctx context.Context, from, to *[]UndoEntry) (Plan, any, error) {
 	e := (*from)[len(*from)-1]
 	p, err := o.invert(ctx, model.ChangeSet{ID: e.ChangeSetID, Ops: e.Ops}, o.write)
 	if err != nil {
-		return Plan{}, err
+		return Plan{NoOp: true}, nil, err
 	}
 	*from = (*from)[:len(*from)-1]
 	if !p.NoOp {
 		*to = append(*to, UndoEntry{p.ChangeSet.ID, p.ChangeSet.Ops, e.CursorBefore})
 	}
-	return p, nil
+	return p, e.CursorBefore, nil
 }
 
 // Revert seals open typing, then applies the inverse of any recorded change set
@@ -110,6 +110,9 @@ func (o *Outline) invert(ctx context.Context, cs model.ChangeSet, write func(con
 		p := PlanRevert(o.Ctx(), cs)
 		if p.NoOp {
 			return p, nil
+		}
+		if o.beforeInvert != nil {
+			o.beforeInvert()
 		}
 		recorded, err := write(ctx, p, store.Expect{History: true, Version: o.seq})
 		if errors.Is(err, store.ErrConflict) && attempt < invertAttempts {

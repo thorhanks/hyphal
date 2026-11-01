@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/thorhanks/hyphal/internal/ids"
 	"github.com/thorhanks/hyphal/internal/model"
@@ -377,43 +378,31 @@ func TestImportJSON_Invalid(t *testing.T) {
 	}
 }
 
-func TestExportJSON_DamagedRows(t *testing.T) {
-	ctx := context.Background()
-	exec := func(t *testing.T, db *DB, q string, args ...any) {
-		t.Helper()
-		if _, err := db.sql.Exec(q, args...); err != nil {
-			t.Fatal(err)
-		}
+func TestExportJSON_DamagedRowsRefused(t *testing.T) {
+	cases := map[string]struct{ query, want string }{
+		"ui_state JSON": {`UPDATE ui_state SET value = '{oops' WHERE key = 'zoom'`, "zoom"},
+		"op JSON":       {`UPDATE ops SET after = '{oops' WHERE id = 2`, "op 2"},
+		"node text":     {`UPDATE nodes SET text = CAST(x'ff41' AS TEXT) WHERE id = '` + fixA + `'`, fixA},
+		"page":          {`UPDATE pages SET markdown = CAST(x'ff41' AS TEXT)`, fixA},
+		"description":   {`UPDATE change_sets SET description = CAST(x'ff41' AS TEXT) WHERE id = '` + fixSet1 + `'`, fixSet1},
+		"meta":          {`UPDATE meta SET value = CAST(x'ff41' AS TEXT) WHERE key = 'ui_opened'`, "ui_opened"},
 	}
-	t.Run("a bad ui_state row is left out", func(t *testing.T) {
-		db := fixtureDB(t)
-		exec(t, db, `UPDATE ui_state SET value = '{oops' WHERE key = 'zoom'`)
-		out := exportBytes(t, db, true)
-		if strings.Contains(string(out), `"zoom"`) || !strings.Contains(string(out), fixC) {
-			t.Errorf("export:\n%s", out)
-		}
-	})
-	t.Run("a bad op fails only with history", func(t *testing.T) {
-		db := fixtureDB(t)
-		exec(t, db, `UPDATE ops SET after = '{oops' WHERE id = 2`)
-		exportBytes(t, db, false)
-		err := db.ExportJSON(ctx, &bytes.Buffer{}, true, "test")
-		if err == nil || !strings.Contains(err.Error(), "op 2") {
-			t.Errorf("got %v", err)
-		}
-	})
-	t.Run("invalid UTF-8 is refused by name", func(t *testing.T) {
-		db := fixtureDB(t)
-		exec(t, db, `UPDATE nodes SET text = CAST(x'ff41' AS TEXT) WHERE id = ?`, fixA)
-		if err := db.ExportJSON(ctx, &bytes.Buffer{}, false, "test"); err == nil || !strings.Contains(err.Error(), fixA) {
-			t.Errorf("node: %v", err)
-		}
-		exec(t, db, `UPDATE nodes SET text = 'ok' WHERE id = ?`, fixA)
-		exec(t, db, `UPDATE pages SET markdown = CAST(x'ff41' AS TEXT) WHERE node_id = ?`, fixA)
-		if err := db.ExportJSON(ctx, &bytes.Buffer{}, false, "test"); err == nil || !strings.Contains(err.Error(), fixA) {
-			t.Errorf("page: %v", err)
-		}
-	})
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			db := fixtureDB(t)
+			if _, err := db.sql.Exec(c.query); err != nil {
+				t.Fatal(err)
+			}
+			var out bytes.Buffer
+			err := db.ExportJSON(context.Background(), &out, true, "test")
+			if !errors.Is(err, ErrDamaged) || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("got %v", err)
+			}
+			if out.Len() != 0 {
+				t.Error("wrote part of an export")
+			}
+		})
+	}
 }
 
 func TestExportJSON_NewerSchemaRefuses(t *testing.T) {
@@ -456,5 +445,90 @@ func TestHistorySeq(t *testing.T) {
 	}
 	if _, err := db.Commit(ctx, star, []Expect{{History: true, Version: res.Seq}}, nil); err != nil {
 		t.Errorf("current history: %v", err)
+	}
+}
+
+// When this fails, a migration has arrived: exports from older schemas must
+// import too, or every existing backup stops loading (A-009).
+func TestImportJSON_OlderSchemasStillLoad(t *testing.T) {
+	if len(migrations) != 0 {
+		t.Fatal("validateExport refuses older schema versions; make them load, then replace this test")
+	}
+}
+
+func TestImportJSON_InvalidUTF8(t *testing.T) {
+	db := fixtureDB(t)
+	src := bytes.Replace(exportBytes(t, db, true), []byte("trashed"), []byte("tra\xffshed"), 1)
+	if err := db.ImportJSON(context.Background(), bytes.NewReader(src), ImportReplace); !errors.Is(err, ErrParse) {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestExportJSONRepaired(t *testing.T) {
+	ctx := context.Background()
+	db := fixtureDB(t)
+	for _, q := range []string{
+		`UPDATE nodes SET text = CAST(x'ff41' AS TEXT) WHERE id = '` + fixA + `'`,
+		`UPDATE pages SET markdown = CAST(x'ff41' AS TEXT)`,
+		`UPDATE ui_state SET value = '{oops' WHERE key = 'zoom'`,
+		`UPDATE ops SET after = '{oops' WHERE id = 2`,
+		`UPDATE change_sets SET description = CAST(x'ff41' AS TEXT) WHERE id = '` + fixSet1 + `'`,
+		`UPDATE ops SET after = CAST(x'7b226d61726b646f776e223a22ff227d' AS TEXT) WHERE id = 1`,
+	} {
+		if _, err := db.sql.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.ExportJSON(ctx, &bytes.Buffer{}, true, "test"); !errors.Is(err, ErrDamaged) {
+		t.Fatalf("exact export: %v", err)
+	}
+	var out bytes.Buffer
+	damage, err := db.ExportJSONRepaired(ctx, &out, true, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(damage) != 6 {
+		t.Errorf("damage: %q", damage)
+	}
+	var f exportFile
+	if err := json.Unmarshal(out.Bytes(), &f); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.UIState) != 1 || len(f.History.Ops) != 1 {
+		t.Errorf("left out: %+v, %+v", f.UIState, f.History.Ops)
+	}
+	if !utf8.Valid(out.Bytes()) {
+		t.Error("output isn't UTF-8")
+	}
+	// The result is a file this build can load.
+	if err := newImportDB(t).ImportJSON(ctx, &out, ImportEmpty); err != nil {
+		t.Errorf("import of the repaired file: %v", err)
+	}
+}
+
+func TestHistorySeq_NeverRepeatsAfterImport(t *testing.T) {
+	ctx := context.Background()
+	db := newImportDB(t)
+	start, err := db.HistorySeq(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	noHistory := exportBytes(t, fixtureDB(t), false)
+	if err := db.ImportJSON(ctx, bytes.NewReader(noHistory), ImportEmpty); err != nil {
+		t.Fatal(err)
+	}
+	first, err := db.HistorySeq(ctx)
+	if err != nil || first == start {
+		t.Fatalf("seq %d after import, %d before, %v", first, start, err)
+	}
+	if err := db.ImportJSON(ctx, bytes.NewReader(noHistory), ImportReplace); err != nil {
+		t.Fatal(err)
+	}
+	if second, err := db.HistorySeq(ctx); err != nil || second == first {
+		t.Errorf("seq %d, %v", second, err)
+	}
+	// The epoch stays local.
+	if strings.Contains(string(exportBytes(t, db, true)), "last_history_epoch") {
+		t.Error("the epoch was exported")
 	}
 }

@@ -1,16 +1,20 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 // WriteFileAtomic writes a file through write, into a temp file beside path
-// that is synced and then renamed over it, with mode perm (§7.5). If it returns
-// an error, an existing file at path is untouched and no temp file remains.
+// that is synced and then renamed over it, with mode perm (§7.5). On an error, an
+// existing file at path is untouched and no temp file remains, except when
+// syncing the directory fails after the rename: the new file is then in place,
+// but a crash could bring back the old one, so the error is still reported.
 func WriteFileAtomic(path string, perm fs.FileMode, write func(io.Writer) error) (err error) {
 	dir := filepath.Dir(path)
 	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp*") // created 0600
@@ -39,18 +43,22 @@ func WriteFileAtomic(path string, perm fs.FileMode, write func(io.Writer) error)
 	if err := os.Rename(f.Name(), path); err != nil {
 		return err
 	}
-	syncDir(dir)
-	return nil
+	return syncDir(dir)
 }
 
-// syncDir makes a rename in dir durable where it can. The file is already
-// complete and in place, and some filesystems can't sync a directory, so a
-// failure here isn't a failed write.
-func syncDir(dir string) {
+// syncDir makes a rename in dir durable. Some filesystems can't sync a directory,
+// which isn't a failure.
+func syncDir(dir string) error {
 	d, err := os.Open(dir)
 	if err != nil {
-		return
+		return err
 	}
-	_ = d.Sync()
-	_ = d.Close()
+	return errors.Join(ignoreUnsupported(d.Sync()), d.Close())
+}
+
+func ignoreUnsupported(err error) error {
+	if errors.Is(err, syscall.EINVAL) || errors.Is(err, syscall.ENOTSUP) {
+		return nil
+	}
+	return err
 }

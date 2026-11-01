@@ -44,7 +44,7 @@ Acceptance criteria:
 Type: impl · Packages: `internal/store`, `internal/core`, `internal/server`, `internal/web`, `internal/cli` · Depends on: P2-09, P2-12 · Spec: §10.1 (saved searches), §7.4, §7.5
 Deliverables:
 - Schema v2 migration: `CREATE TABLE saved_searches (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, query TEXT NOT NULL, created_at TEXT NOT NULL, position TEXT NOT NULL)`. Snapshot before migrating (§7.4). Changes to saved searches are user data: record them in history as a new op family? The spec doesn't say; ask Thor. Default: no history, like view state, but included in JSON export (§10.1).
-- JSON export `format_version` 2 with `saved_searches`; import accepts 1 and 2 (CONTRACTS §6).
+- JSON export `format_version` 2 with `saved_searches`; import accepts 1 and 2 (CONTRACTS §6). Exports from schema 1 must load after the migration; `TestImportJSON_OlderSchemasStillLoad` fails until they do (A-009).
 - Palette "Save search" (asks for a name in an overlay input, prefilled from the query) while a filter is active; saved searches listed in the jump palette next to starred locations; choosing one opens the filter with that query; palette "Delete saved search".
 - CLI: none in the spec; ask Thor whether `hyphal search --saved NAME` is wanted.
 Acceptance criteria:

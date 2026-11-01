@@ -52,6 +52,7 @@ CREATE TABLE ops (... as §8.2 ...);
 | `last_snapshot_at` | timestamp of the newest good snapshot |
 | `last_trash_purge_at` | timestamp of the last automatic purge (D-016) |
 | `last_export_at` | scheduled export (P2) |
+| `last_history_epoch` | bumped when change sets are replaced or removed, so `HistorySeq` never repeats (A-009) |
 
 `ui_state` keys: `show_completed` (bool, default true), `zoom` (node ID string), `cursor:<zoom-id>` (`{"node": "<id>", "offset": <int>}`), `palette_recent` (array of command IDs, newest first, max 20).
 

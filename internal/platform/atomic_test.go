@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
@@ -92,4 +93,15 @@ func TestWriteFileAtomic(t *testing.T) {
 			t.Errorf("content %q, %v", got, err)
 		}
 	})
+}
+
+func TestIgnoreUnsupported(t *testing.T) {
+	for _, err := range []error{nil, syscall.EINVAL, syscall.ENOTSUP} {
+		if got := ignoreUnsupported(err); got != nil {
+			t.Errorf("%v: got %v", err, got)
+		}
+	}
+	if got := ignoreUnsupported(syscall.EIO); !errors.Is(got, syscall.EIO) {
+		t.Errorf("EIO: got %v", got)
+	}
 }
