@@ -271,10 +271,9 @@ func TestNBetween_Property(t *testing.T) {
 	})
 }
 
-// TestOrderMatchesSQLite checks that string order equals byte order, which is
-// SQLite's BINARY collation.
-// TODO(P0-06): also compare with ORDER BY position on in-memory SQLite.
-func TestOrderMatchesSQLite(t *testing.T) {
+// TestOrderIsByteOrder checks that string order equals byte order, which is
+// SQLite's BINARY collation. store.TestOrderMatchesSQLite checks the real column.
+func TestOrderIsByteOrder(t *testing.T) {
 	r := rand.New(rand.NewPCG(1, 2))
 	keys := []string{mustBetween(t, "", "")}
 	for len(keys) < 10_000 {

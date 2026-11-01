@@ -1,0 +1,285 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	_ "embed" // schema/0001_init.sql
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strconv"
+	"time"
+
+	"github.com/thorhanks/hyphal/internal/ids"
+	"github.com/thorhanks/hyphal/internal/model"
+)
+
+//go:embed schema/0001_init.sql
+var schemaV1 string
+
+const (
+	formatID           = "tree-outline" // D-005
+	defaultBusyTimeout = 5 * time.Second
+	description        = "An outline stored as a tree. nodes holds every bullet, " +
+		"ordered among its siblings by the fractional key in position; deleted_at marks " +
+		"the ones in the Trash. pages holds an optional Markdown document per bullet, and " +
+		"stars the starred bullets. change_sets and ops record every change, with before " +
+		"and after values as JSON; the current rows are authoritative and history is a " +
+		"record beside them. view_state and ui_state are per device and are not history."
+)
+
+// Errors returned by the store (ARCHITECTURE §4.2).
+var (
+	// ErrReadOnly is returned by every write on a read-only database (§7.4).
+	ErrReadOnly = errors.New("database is read-only")
+	// ErrNotOutline means the file holds other tables and isn't an outline, so
+	// it is left untouched.
+	ErrNotOutline = errors.New("file is not an outline database")
+	// ErrNeedsMigration means a read-only open found an older schema, which
+	// can't be migrated without writing.
+	ErrNeedsMigration = errors.New("database needs a migration and is opened read-only")
+)
+
+// OpenOptions configures Open (ARCHITECTURE §4.2).
+type OpenOptions struct {
+	Create      bool             // create file and schema if missing
+	BusyTimeout time.Duration    // default 5s (§8.6)
+	ReadOnly    bool             // force read-only
+	Clock       func() time.Time // default time.Now
+	SnapshotDir string           // default <dir of db>/snapshots (D-014)
+}
+
+// ReadOnlyReason says why a database is read-only (§4.8, §7.4).
+type ReadOnlyReason int
+
+// The read-only reasons.
+const (
+	ReadOnlyNone ReadOnlyReason = iota
+	ReadOnlyNewerSchema
+	ReadOnlyIntegrityFailed
+	ReadOnlyLockHeld
+	ReadOnlyForced
+)
+
+// DB is an open outline database (§7).
+type DB struct {
+	sql      *sql.DB
+	path     string
+	opts     OpenOptions
+	readOnly ReadOnlyReason
+}
+
+// Open opens the database at path, creating the file and schema if asked and
+// migrating an older schema after taking a snapshot. A newer schema opens
+// read-only (§7.2, §7.4, §8.1).
+func Open(path string, o OpenOptions) (*DB, error) {
+	if o.BusyTimeout == 0 {
+		o.BusyTimeout = defaultBusyTimeout
+	}
+	if o.Clock == nil {
+		o.Clock = time.Now
+	}
+	if o.SnapshotDir == "" {
+		o.SnapshotDir = filepath.Join(filepath.Dir(path), "snapshots")
+	}
+	create := o.Create && !o.ReadOnly
+	if err := prepareFile(path, create); err != nil {
+		return nil, err
+	}
+	conn, err := sql.Open(driverName, dsn(path, o.BusyTimeout))
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", path, err)
+	}
+	db := &DB{sql: conn, path: path, opts: o}
+	if err := db.prepareSchema(context.Background(), create); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("open %s: %w", path, err)
+	}
+	return db, nil
+}
+
+// prepareFile creates a missing database file 0600 in a 0700 directory, since
+// SQLite would use the umask (§7.2). The -wal and -shm files copy its mode.
+func prepareFile(path string, create bool) error {
+	_, err := os.Stat(path)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) || !create {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("create data directory: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("create database: %w", err)
+	}
+	return f.Close()
+}
+
+// prepareSchema brings the schema to the known version, or switches to
+// read-only when it can't or shouldn't be changed (§7.4).
+func (db *DB) prepareSchema(ctx context.Context, create bool) error {
+	version, err := readVersion(ctx, db.sql)
+	if err != nil {
+		return err
+	}
+	known := knownVersion()
+	switch {
+	case version > known:
+		return db.switchReadOnly(ReadOnlyNewerSchema)
+	case version == 0 && !create:
+		return fmt.Errorf("%w: it has no schema", ErrNotOutline)
+	case version != 0 && version < known && db.opts.ReadOnly:
+		return ErrNeedsMigration
+	case db.opts.ReadOnly:
+		return db.switchReadOnly(ReadOnlyForced)
+	case version == 0:
+		if err := db.createSchema(ctx); err != nil {
+			return err
+		}
+	}
+	return db.migrate(ctx, known)
+}
+
+// switchReadOnly reopens the pool so that SQLite refuses writes on every
+// connection, in addition to the ErrReadOnly checks (§7.4).
+func (db *DB) switchReadOnly(reason ReadOnlyReason) error {
+	if err := db.sql.Close(); err != nil {
+		return err
+	}
+	conn, err := sql.Open(driverName, dsn(db.path, db.opts.BusyTimeout, "query_only(ON)"))
+	if err != nil {
+		return err
+	}
+	db.sql = conn
+	db.readOnly = reason
+	return nil
+}
+
+type querier interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+// readVersion returns meta.schema_version, or 0 for a file with no tables.
+func readVersion(ctx context.Context, q querier) (int, error) {
+	var tables int
+	if err := q.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table'`).Scan(&tables); err != nil {
+		return 0, err
+	}
+	if tables == 0 {
+		return 0, nil
+	}
+	var hasMeta int
+	if err := q.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'meta'`).Scan(&hasMeta); err != nil {
+		return 0, err
+	}
+	if hasMeta == 0 {
+		return 0, fmt.Errorf("%w: it has no meta table", ErrNotOutline)
+	}
+	var value string
+	err := q.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = 'schema_version'`).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("%w: it has no schema_version", ErrNotOutline)
+	}
+	if err != nil {
+		return 0, err
+	}
+	version, err := strconv.Atoi(value)
+	if err != nil || version < 1 {
+		return 0, fmt.Errorf("%w: schema_version is %q", ErrNotOutline, value)
+	}
+	return version, nil
+}
+
+// createSchema writes schema v1, the root row and the meta rows in one
+// transaction (CONTRACTS §4). Another process may have got there first.
+func (db *DB) createSchema(ctx context.Context) error {
+	tx, err := db.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	version, err := readVersion(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if version != 0 {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, schemaV1); err != nil {
+		return fmt.Errorf("create schema: %w", err)
+	}
+	root := ids.NewNode()
+	now := model.NewTime(db.opts.Clock()).String()
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO nodes (id, parent_id, position, text, created_at, updated_at) VALUES (?, NULL, 'a0', '', ?, ?)`,
+		string(root), now, now); err != nil {
+		return fmt.Errorf("create root: %w", err)
+	}
+	for key, value := range map[string]string{
+		"schema_version": "1",
+		"format_id":      formatID,
+		"root_id":        string(root),
+		"description":    description,
+	} {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO meta (key, value) VALUES (?, ?)`, key, value); err != nil {
+			return fmt.Errorf("write meta: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
+// Close closes the database.
+func (db *DB) Close() error {
+	return db.sql.Close()
+}
+
+// ReadOnly returns why the database is read-only, or ReadOnlyNone (§7.4).
+func (db *DB) ReadOnly() ReadOnlyReason {
+	return db.readOnly
+}
+
+// Path returns the database file's path.
+func (db *DB) Path() string {
+	return db.path
+}
+
+// Meta returns one row of the meta table (CONTRACTS §4).
+func (db *DB) Meta(ctx context.Context, key string) (string, bool, error) {
+	var value string
+	err := db.sql.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = ?`, key).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return value, true, nil
+}
+
+// Expect is a version the caller requires of a node or page at commit (§7.3).
+type Expect struct {
+	NodeID  model.NodeID
+	Version int64
+	Page    bool
+}
+
+// CommitResult is what Commit recorded (§8.2).
+type CommitResult struct {
+	ChangeSet model.ChangeSet // as recorded: before values recomputed from the database
+	Stale     []model.NodeID  // nodes whose version differed from what the caller last saw
+}
+
+// Commit writes a change set and its history in one transaction (§7.3, §8.2).
+// So far it only refuses writes on a read-only database.
+// TODO(P0-08): write the change set.
+func (db *DB) Commit(_ context.Context, _ model.ChangeSet, _ []Expect, _ map[model.NodeID]int64) (CommitResult, error) {
+	if db.readOnly != ReadOnlyNone {
+		return CommitResult{}, ErrReadOnly
+	}
+	return CommitResult{}, errors.New("commit is not implemented")
+}

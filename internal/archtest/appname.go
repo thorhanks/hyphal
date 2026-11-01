@@ -79,6 +79,9 @@ func scanGo(fsys fs.FS, p string) ([]Finding, error) {
 	}
 	var out []Finding
 	ast.Inspect(f, func(n ast.Node) bool {
+		if _, isImport := n.(*ast.ImportSpec); isImport {
+			return false // the module path is not a stored name
+		}
 		lit, ok := n.(*ast.BasicLit)
 		if !ok || lit.Kind != token.STRING || !containsAppName(lit.Value) {
 			return true

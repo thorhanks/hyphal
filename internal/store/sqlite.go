@@ -20,8 +20,8 @@ const driverName = "sqlite"
 // dsn returns a file URI whose pragmas the driver applies to every new
 // connection in the pool (§8.1, CONTRACTS §4). Write transactions begin
 // IMMEDIATE so a busy writer waits up to busy instead of failing on upgrade
-// (§8.6).
-func dsn(path string, busy time.Duration) string {
+// (§8.6). extra adds pragmas after those.
+func dsn(path string, busy time.Duration, extra ...string) string {
 	q := url.Values{}
 	q.Add("_pragma", fmt.Sprintf("busy_timeout(%d)", busy.Milliseconds()))
 	q.Add("_pragma", "journal_mode(WAL)")
@@ -29,6 +29,9 @@ func dsn(path string, busy time.Duration) string {
 	q.Add("_pragma", "foreign_keys(ON)")
 	if runtime.GOOS == "darwin" {
 		q.Add("_pragma", "fullfsync(ON)") // §9.4
+	}
+	for _, p := range extra {
+		q.Add("_pragma", p)
 	}
 	q.Set("_txlock", "immediate")
 	return fileURI(path, q)

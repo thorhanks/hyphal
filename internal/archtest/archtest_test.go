@@ -119,6 +119,7 @@ func TestAppNamePlacement_DetectsViolation(t *testing.T) {
 		{"allowed with marker", "internal/store/export.go", "package store\n\nconst f = \"hyphal-export\" // " + AllowMarker + " (CONTRACTS §1)\n", 0},
 		{"comment only", "internal/store/s.go", "package store\n\n// hyphal is fine in comments.\nconst k = \"x\"\n", 0},
 		{"test file", "internal/store/s_test.go", "package store\n\nconst k = \"hyphal\"\n", 0},
+		{"import path", "internal/store/s.go", "package store\n\nimport _ \"example.com/hyphal/model\"\n", 0},
 		{"sql", "internal/store/schema/0001_init.sql", "CREATE TABLE hyphal_meta (k TEXT);\n", 1},
 		{"testdata skipped", "internal/store/testdata/export.json", "{\"format\": \"hyphal-export\"}\n", 0},
 	}
