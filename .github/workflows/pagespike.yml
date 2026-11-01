@@ -1,0 +1,35 @@
+# Live preview spike only: internal/pagespike is its own module and has no part in `make check`.
+name: pagespike
+on:
+  push:
+    branches: [main]
+    paths: ["internal/pagespike/**", ".github/workflows/pagespike.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: internal/pagespike
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run -s build
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Measurements
+        run: npx playwright test --grep "measure" --reporter=line | grep MEASURE
+      - name: Flakiness over 20 repeats
+        if: always()
+        run: npx playwright test --grep-invert "measure" --repeat-each=20 --reporter=line

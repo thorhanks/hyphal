@@ -1,0 +1,42 @@
+@layer tokens, components;
+
+@layer tokens {
+  :root {
+    color-scheme: dark;
+    --bg: #2c2824; --raise: #37322c; --text: #eee6d8; --muted: #b3a896; --thread: #75695a; --accent: #e8b25c;
+    --highlight: #6a5a33; --tag: #9cc28f; --selection: #5a4c34;
+    --font-text: Georgia, serif; --font-display: Georgia, serif; --font-code: ui-monospace, monospace;
+    --size: 16.5px; --lead: 1.5; --column: 44rem;
+    --code-keyword: #e8b25c; --code-string: #9cc28f; --code-comment: #b3a896;
+  }
+}
+
+@layer components {
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  #page { height: 100%; }
+  .cm-content ::selection { background: var(--selection); }
+  .lp-syntax, .lp-listmark { color: var(--muted); }
+  .lp-h { font-family: var(--font-display); font-weight: 600; padding-top: .6em; }
+  .lp-h1 { font-size: 1.7em; line-height: 1.2; }
+  .lp-h2 { font-size: 1.35em; line-height: 1.25; }
+  .lp-h3 { font-size: 1.15em; }
+  .lp-strong { font-weight: 700; }
+  .lp-em { font-style: italic; }
+  .lp-strike { text-decoration: line-through; }
+  .lp-highlight { background: var(--highlight); border-radius: 2px; }
+  .lp-code, .lp-literal { font-family: var(--font-code); font-size: .9em; background: var(--raise); border-radius: 3px; }
+  .lp-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .lp-quote { border-left: 2px solid var(--thread); padding-left: 14px; margin-left: 16px; color: var(--muted); }
+  .lp-fence { font-family: var(--font-code); font-size: .9em; background: var(--raise); }
+  .lp-bullet { color: var(--accent); padding-inline-end: .1em; }
+  .lp-check { accent-color: var(--accent); margin: 0 .3em 0 0; vertical-align: -1px; }
+  .lp-rule { display: inline-block; width: 100%; border-top: 1px solid var(--thread); vertical-align: middle; }
+  .lp-image { max-width: 100%; }
+  .lp-table { border-collapse: collapse; margin: .4em 16px; }
+  .lp-table th, .lp-table td { border: 1px solid var(--thread); padding: 4px 10px; text-align: left; cursor: text; }
+  .lp-table th { background: var(--raise); font-weight: 600; }
+  .lp-table code { font-family: var(--font-code); }
+  .tok-keyword { color: var(--code-keyword); }
+  .tok-string, .tok-string2 { color: var(--code-string); }
+  .tok-comment { color: var(--code-comment); font-style: italic; }
+}
