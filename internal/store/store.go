@@ -22,6 +22,7 @@ var schemaV1 string
 const (
 	formatID           = "tree-outline" // D-005
 	defaultBusyTimeout = 5 * time.Second
+	walRetryDelay      = 10 * time.Millisecond
 	description        = "An outline stored as a tree. nodes holds every bullet, " +
 		"ordered among its siblings by the fractional key in position; deleted_at marks " +
 		"the ones in the Trash. pages holds an optional Markdown document per bullet, and " +
@@ -137,12 +138,41 @@ func (db *DB) prepareSchema(ctx context.Context, create bool) error {
 		return ErrNeedsMigration
 	case db.opts.ReadOnly:
 		return db.switchReadOnly(ReadOnlyForced)
-	case version == 0:
-		if err := db.createSchema(ctx); err != nil {
+	}
+	if err := db.ensureWAL(ctx); err != nil {
+		return err
+	}
+	created := false
+	if version == 0 {
+		if created, err = db.createSchema(ctx); err != nil {
 			return err
 		}
 	}
-	return db.migrate(ctx, known)
+	return db.migrate(ctx, known, !created)
+}
+
+// ensureWAL puts the file in WAL mode (§8.1). Changing the mode needs the file
+// to itself and doesn't always wait out busy_timeout, so it retries for that
+// long when another connection is opening the same new file.
+func (db *DB) ensureWAL(ctx context.Context) error {
+	deadline := time.Now().Add(db.opts.BusyTimeout)
+	for {
+		var mode string
+		err := db.sql.QueryRowContext(ctx, `PRAGMA journal_mode=WAL`).Scan(&mode)
+		switch {
+		case err == nil && mode != "wal":
+			return fmt.Errorf("journal mode is %q, not wal", mode)
+		case err == nil:
+			return nil
+		case !isBusy(err) || time.Now().After(deadline):
+			return fmt.Errorf("set WAL mode: %w", err)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(walRetryDelay):
+		}
+	}
 }
 
 // switchReadOnly reopens the pool so that SQLite refuses writes on every
@@ -164,27 +194,27 @@ type querier interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
-// readVersion returns meta.schema_version, or 0 for a file with no tables.
+// readVersion returns meta.schema_version, or 0 for a file with no tables. A
+// file with tables must carry our format_id (D-005), or it is someone else's.
 func readVersion(ctx context.Context, q querier) (int, error) {
-	var tables int
-	if err := q.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table'`).Scan(&tables); err != nil {
+	var tables, hasMeta int
+	if err := q.QueryRowContext(ctx, `SELECT count(*), coalesce(sum(name = 'meta'), 0) FROM sqlite_master WHERE type = 'table'`).Scan(&tables, &hasMeta); err != nil {
 		return 0, err
 	}
 	if tables == 0 {
 		return 0, nil
 	}
-	var hasMeta int
-	if err := q.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'meta'`).Scan(&hasMeta); err != nil {
-		return 0, err
-	}
 	if hasMeta == 0 {
 		return 0, fmt.Errorf("%w: it has no meta table", ErrNotOutline)
 	}
-	var value string
-	err := q.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = 'schema_version'`).Scan(&value)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("%w: it has no schema_version", ErrNotOutline)
+	format, _, err := metaValue(ctx, q, "format_id")
+	if err != nil {
+		return 0, err
 	}
+	if format != formatID {
+		return 0, fmt.Errorf("%w: format_id is %q", ErrNotOutline, format)
+	}
+	value, _, err := metaValue(ctx, q, "schema_version")
 	if err != nil {
 		return 0, err
 	}
@@ -196,29 +226,29 @@ func readVersion(ctx context.Context, q querier) (int, error) {
 }
 
 // createSchema writes schema v1, the root row and the meta rows in one
-// transaction (CONTRACTS §4). Another process may have got there first.
-func (db *DB) createSchema(ctx context.Context) error {
+// transaction (CONTRACTS §4). It returns false if another process got there first.
+func (db *DB) createSchema(ctx context.Context) (bool, error) {
 	tx, err := db.sql.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	version, err := readVersion(ctx, tx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if version != 0 {
-		return nil
+		return false, nil
 	}
 	if _, err := tx.ExecContext(ctx, schemaV1); err != nil {
-		return fmt.Errorf("create schema: %w", err)
+		return false, fmt.Errorf("create schema: %w", err)
 	}
 	root := ids.NewNode()
 	now := model.NewTime(db.opts.Clock()).String()
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO nodes (id, parent_id, position, text, created_at, updated_at) VALUES (?, NULL, 'a0', '', ?, ?)`,
 		string(root), now, now); err != nil {
-		return fmt.Errorf("create root: %w", err)
+		return false, fmt.Errorf("create root: %w", err)
 	}
 	for key, value := range map[string]string{
 		"schema_version": "1",
@@ -227,10 +257,10 @@ func (db *DB) createSchema(ctx context.Context) error {
 		"description":    description,
 	} {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO meta (key, value) VALUES (?, ?)`, key, value); err != nil {
-			return fmt.Errorf("write meta: %w", err)
+			return false, fmt.Errorf("write meta: %w", err)
 		}
 	}
-	return tx.Commit()
+	return true, tx.Commit()
 }
 
 // Close closes the database.
@@ -250,8 +280,12 @@ func (db *DB) Path() string {
 
 // Meta returns one row of the meta table (CONTRACTS §4).
 func (db *DB) Meta(ctx context.Context, key string) (string, bool, error) {
+	return metaValue(ctx, db.sql, key)
+}
+
+func metaValue(ctx context.Context, q querier, key string) (string, bool, error) {
 	var value string
-	err := db.sql.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = ?`, key).Scan(&value)
+	err := q.QueryRowContext(ctx, `SELECT coalesce(value, '') FROM meta WHERE key = ?`, key).Scan(&value)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
 	}

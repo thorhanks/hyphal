@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // driverName is the database/sql name of modernc.org/sqlite, the driver chosen
@@ -18,13 +19,13 @@ import (
 const driverName = "sqlite"
 
 // dsn returns a file URI whose pragmas the driver applies to every new
-// connection in the pool (§8.1, CONTRACTS §4). Write transactions begin
-// IMMEDIATE so a busy writer waits up to busy instead of failing on upgrade
-// (§8.6). extra adds pragmas after those.
+// connection in the pool (§8.1, CONTRACTS §4). WAL mode isn't among them: it is
+// stored in the file, set once by ensureWAL. Transactions begin IMMEDIATE so a
+// busy writer waits up to busy instead of failing on upgrade (§8.6), so reads
+// use readTx. extra adds pragmas after those.
 func dsn(path string, busy time.Duration, extra ...string) string {
 	q := url.Values{}
 	q.Add("_pragma", fmt.Sprintf("busy_timeout(%d)", busy.Milliseconds()))
-	q.Add("_pragma", "journal_mode(WAL)")
 	q.Add("_pragma", "synchronous(FULL)")
 	q.Add("_pragma", "foreign_keys(ON)")
 	if runtime.GOOS == "darwin" {
@@ -35,6 +36,22 @@ func dsn(path string, busy time.Duration, extra ...string) string {
 	}
 	q.Set("_txlock", "immediate")
 	return fileURI(path, q)
+}
+
+// readTx begins a transaction for a consistent read. It takes no write lock, so
+// it doesn't wait for writers and works on a read-only database.
+func (db *DB) readTx(ctx context.Context) (*sql.Tx, error) {
+	return db.sql.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+}
+
+// isBusy reports whether err is SQLite's BUSY or LOCKED, whatever the extended code.
+func isBusy(err error) bool {
+	var e *sqlite.Error
+	if !errors.As(err, &e) {
+		return false
+	}
+	code := e.Code() & 0xff
+	return code == sqlite3.SQLITE_BUSY || code == sqlite3.SQLITE_LOCKED
 }
 
 // fileURI escapes path as an SQLite URI filename, so names containing ?, #

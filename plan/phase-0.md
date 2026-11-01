@@ -150,6 +150,8 @@ Type: impl · Packages: `internal/store` · Depends on: P0-06 · Spec: §7.3, §
 
 Deliverables: `Commit(ctx, cs, expect, seen)` per ARCHITECTURE §4.2: one transaction; insert `change_sets` row; for each op in order: read current row(s), recompute `before`, validate, apply `after`, bump versions and `updated_at` per CONTRACTS §4, insert `ops` row. Return `CommitResult` with recorded change set and `Stale`.
 
+Per CONTRACTS §5 and D-049: every `delete` is stamped with the change set's time and ID, including one with null values made by inverting an insert, and `merged_into` passes through from the given op on `delete` after and `restore` before. Malformed payloads are rejected with `ErrInvalid` through `Op.DecodeBefore` and `DecodeAfter`.
+
 Validation (`ErrInvalid`): insert with an existing ID; parent missing or trashed (for insert, move, restore); a move creating a cycle (recursive CTE ancestor check); **any** op on the root (it can't be renamed, deleted, moved, completed, starred, or given a page, §4.1); text containing `\n`/`\r` or a leading marker; an invalid ID or position.
 
 Acceptance criteria:
@@ -161,13 +163,14 @@ Acceptance criteria:
 - AC6 Moving a node under its own descendant, inserting under a trashed parent, and editing the root each return `ErrInvalid` and roll back → `TestCommit_Invariants` (table).
 - AC7 Any SQL error mid-change-set leaves no partial rows (inject failure via a test hook) → `TestCommit_Atomic`.
 - AC8 Two processes committing concurrently both succeed (busy timeout) → `TestCommit_ConcurrentProcesses`.
+- AC9 Undoing an insert records a delete with the change set's time and ID; undoing a merge's delete keeps `merged_into` in the restore's `before`, and redoing it restores it to the delete → `TestCommit_InversePayloads`.
 
 ---
 
 ### P0-09 · Store `LoadAll` and core `Tree`
 Type: impl · Packages: `internal/store`, `internal/core` · Depends on: P0-08 · Spec: §7.3, §9.3 · CONTRACTS §8
 
-Deliverables: `store.LoadAll`, `store.LoadPages`, `store.Page`; `core.NewTree`, accessors (ARCHITECTURE §4.3), `Tree.Apply(cs)` for every op kind (mirror of store semantics on the in-memory tree, including version bumps and `updated_at` so the tree equals a reload), `Tree.Check()` implementing CONTRACTS §8 items 1–9.
+Deliverables: `store.LoadAll`, `store.LoadPages`, `store.Page`, reading through `db.readTx` so they work on a read-only database and don't wait for writers; `core.NewTree`, accessors (ARCHITECTURE §4.3), `Tree.Apply(cs)` for every op kind (mirror of store semantics on the in-memory tree, including version bumps and `updated_at` so the tree equals a reload), `Tree.Check()` implementing CONTRACTS §8 items 1–9.
 
 Acceptance criteria:
 - AC1 For random change sets, `Tree.Apply` then compare with `NewTree(LoadAll())` after `Commit` → identical (all fields) → `TestTreeApply_MatchesStore` (rapid, uses `testgen.Actions` once P0-10 exists; initially hand-written change sets).
@@ -227,7 +230,7 @@ Acceptance criteria:
 ### P0-13 · Undo stack, revert, and history properties
 Type: impl · Packages: `internal/core` · Depends on: P0-10 · Spec: §5.6, §8.2 · CONTRACTS §5 · D-009, D-013
 
-Deliverables: `UndoStack` (session, in memory) with entries `{ChangeSetID, Ops, CursorBefore any}`; `Outline.Undo/Redo` (UI source only; CLI outlines have no stack); `PlanRevert(changeSetID)` producing the inverse for fields not changed since, plus `Skipped`. Redo cleared on any new TUI change.
+Deliverables: `UndoStack` (session, in memory) with entries `{ChangeSetID, Ops, CursorBefore any}`; `Outline.Undo/Redo` (UI source only; CLI outlines have no stack); `PlanRevert(changeSetID)` producing the inverse for fields not changed since, plus `Skipped`. Redo cleared on any new UI change.
 
 Acceptance criteria:
 - AC1 Random action sequences (rapid, 1–50 actions) followed by undo-all restore the original tree exactly (excluding history and versions/updated_at) → `TestUndoAll_RestoresOriginal`.
@@ -286,7 +289,7 @@ Type: impl · Packages: `internal/server`, `internal/web`, `e2e/`, `cmd/hyphal` 
 Goal: the real foundation replacing `internal/webspike`: a server over the real `core` and an outline web component that navigates and types, with the spike's lessons built in. Use the spike as a reference and delete it at the end, with `.github/workflows/webspike.yml`.
 
 Deliverables:
-- Add `github.com/coder/websocket`. Reconcile the package directories with ARCHITECTURE §1 (remove `internal/tui`, `internal/layout`, `internal/clipboard`; add `server`, `web`).
+- Add `github.com/coder/websocket`. Add the `server` and `web` packages (ARCHITECTURE §1); `archtest` already has their rules.
 - `server.Run`: loopback listener on the database's stable port (§9.3), Host and Origin checks, ticket → cookie exchange (D-041), CSP header, embedded assets, `/ws`, session goroutine (ARCHITECTURE §5), `hyphal serve [--dev] [--seed FILE]`. The `dev` build tag gates `--seed`, `window.__hyphal` and `/keyprobe`.
 - Protocol per CONTRACTS §12: `hello`, `welcome`, `text`, `action`, `window`, `state` with `textAck`.
 - `web/assets`: `index.html`, `tokens.css` with the `dark` values from SPEC §4.6, `base.css` with the `@layer` order, `<hyphal-app>` and `<hyphal-outline>`: row window with reuse by ID, one `contenteditable="plaintext-only"` focused row, Up/Down across wrapped lines and bullets at a stable column, Left/Right across edges, click to place the caret, the key queue, composition handling, runs rendered without `innerHTML`, marker highlights (D-042).

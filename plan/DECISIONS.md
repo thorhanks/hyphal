@@ -152,6 +152,9 @@ Context: Thor approved the web UI review (SPEC §12.2 rows 60, 61). Decision: th
 ### D-048 · Settings modal over config.toml
 Context: Thor chose a settings modal (SPEC §4.8, §12.2 row 62). go-toml's marshaler drops comments, and `config` may not import `platform` (ARCHITECTURE §2). Decision: `config.SetKey` and `config.ResetKey` are pure text edits that use parser positions to change only the affected line: a commented-out key is uncommented, a reset comments the line out again, and everything else stays byte for byte. `server` does the atomic write through `platform.WriteFileAtomic`, then runs the normal reload path, so hand edits and modal edits follow one route. A folder for `export.dir` is a typed path, since a browser can't return one. The modal is its own `<hyphal-settings>` component sharing the overlay's dialog look, because `<hyphal-overlay>` is a filtered list.
 
+### D-049 · Inverse payloads in CONTRACTS §5
+Context: review of P0-07, approved by Thor on 2026-11-01. `Inverse` produced two payloads the table didn't allow, and A-002 recorded only part of this. Decision: CONTRACTS §5 now allows `merged_into` on a restore's `before`, so a merge's delete inverts twice exactly, and says `store.Commit` stamps the null `deleted_at` and `deleted_by` of a delete made from an insert. P0-08 AC9 tests both.
+
 ## Agent decisions
 
 <!-- Append A-001, A-002, … below using the format in README §5. -->
@@ -163,5 +166,5 @@ Alternatives: delete the spike after measuring (numbers not reproducible); build
 
 ### A-002 · Inverting an insert twice (P0-07, 2026-11-01)
 Context: P0-07 AC3 asks for `Inverse(Inverse(op)) == op` for every kind, but CONTRACTS §5 makes insert invert to delete and delete to restore, so an insert inverted twice is a restore. D-009 and D-013 need this: redoing an undone insert restores the node.
-Decision: follow CONTRACTS §5. The double inverse is exact for every kind except insert, and `TestInverse` checks that insert ends at restore. The delete made from an insert has `deleted_at` and `deleted_by` null, since `Inverse` knows neither; `store.Commit` stamps them per CONTRACTS §4. `ChangedFields` takes a `Current` struct and also returns an error for a malformed payload.
+Decision: follow CONTRACTS §5. The double inverse is exact for every kind except insert, and `TestInverse` checks that insert ends at restore. The delete made from an insert has `deleted_at` and `deleted_by` null, since `Inverse` knows neither; `store.Commit` stamps them (D-049). `ChangedFields` takes a `Current` struct and also returns an error for a malformed payload.
 Alternatives: make `Inverse` of a delete return an insert when it came from one (the op doesn't record that, and a re-insert would conflict with the node's row).

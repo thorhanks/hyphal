@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // InsertFields is the after payload of an insert op (CONTRACTS §5). Its before
@@ -20,8 +21,8 @@ type InsertFields struct {
 }
 
 // DeleteFields is both payloads of delete and restore ops (CONTRACTS §5).
-// MergedInto is present only on a delete made by a merge (§5.3); a restore
-// that undoes the merge keeps it in its before payload.
+// MergedInto is present only on a delete made by a merge (§5.3) and on the
+// before of the restore that undoes it.
 type DeleteFields struct {
 	Deleted    bool         `json:"deleted"`
 	DeletedAt  *Time        `json:"deleted_at"`
@@ -128,13 +129,14 @@ func encode(kind OpKind, after bool, p any) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	if p == nil {
+	v := reflect.ValueOf(p)
+	if p == nil || (v.Kind() == reflect.Pointer && v.IsNil()) {
 		if !nullable {
 			return nil, fmt.Errorf("%s payload can't be null", kind)
 		}
 		return jsonNull, nil
 	}
-	v := reflect.Indirect(reflect.ValueOf(p))
+	v = reflect.Indirect(v)
 	if ptr == nil || v.Type() != reflect.TypeOf(ptr).Elem() {
 		return nil, fmt.Errorf("%s payload can't be %T", kind, p)
 	}
@@ -170,13 +172,38 @@ func decode(kind OpKind, after bool, raw json.RawMessage) (any, error) {
 	if err := json.Unmarshal(raw, ptr); err != nil {
 		return nil, fmt.Errorf("decode %s payload: %w", kind, err)
 	}
+	if err := checkFields(raw, reflect.TypeOf(ptr).Elem()); err != nil {
+		return nil, fmt.Errorf("decode %s payload: %w", kind, err)
+	}
 	return ptr, nil
+}
+
+// checkFields rejects a payload with a field missing, or null where the field
+// isn't nullable, since JSON decoding would read those as zero values
+// (CONTRACTS §5). Only omitempty fields may be absent.
+func checkFields(raw json.RawMessage, t reflect.Type) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return err
+	}
+	for i := range t.NumField() {
+		f := t.Field(i)
+		name, opts, _ := strings.Cut(f.Tag.Get("json"), ",")
+		value, ok := fields[name]
+		switch {
+		case !ok && opts != "omitempty":
+			return fmt.Errorf("field %s is missing", name)
+		case ok && isNull(value) && f.Type.Kind() != reflect.Pointer:
+			return fmt.Errorf("field %s can't be null", name)
+		}
+	}
+	return nil
 }
 
 // Inverse returns the op that undoes op: the same kind with before and after
 // swapped, except that insert inverts to delete and delete and restore invert
 // to each other (CONTRACTS §5). The delete made from an insert has no time or
-// change set yet; store.Commit stamps them (A-002).
+// change set yet; store.Commit stamps them (D-049).
 func Inverse(op Op) Op {
 	inv := Op{NodeID: op.NodeID, Kind: op.Kind, Before: op.After, After: op.Before}
 	switch op.Kind {

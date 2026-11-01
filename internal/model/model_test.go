@@ -173,6 +173,17 @@ func TestPayload_RejectsMisfits(t *testing.T) {
 	if err := op.EncodeAfter(nil); err == nil {
 		t.Error("null after accepted on insert")
 	}
+	// A nil pointer is null, not a panic.
+	op = Op{Kind: OpEditPage}
+	var noPage *PageFields
+	if err := op.EncodeAfter(noPage); err != nil || string(op.After) != "null" {
+		t.Errorf("nil page: %s, %v", op.After, err)
+	}
+	op = Op{Kind: OpEditText}
+	var noText *TextFields
+	if err := op.EncodeAfter(noText); err == nil {
+		t.Error("nil text accepted on edit_text")
+	}
 	op = Op{Kind: "paint"}
 	if err := op.EncodeAfter(TextFields{}); err == nil {
 		t.Error("unknown kind accepted")
@@ -183,6 +194,12 @@ func TestPayload_RejectsMisfits(t *testing.T) {
 		{Kind: OpEditText, Before: jsonNull},
 		{Kind: OpEditText, Before: json.RawMessage(`{"text":1}`)},
 		{Kind: OpEditText},
+		{Kind: OpEditText, Before: json.RawMessage(`{}`)},
+		{Kind: OpEditText, Before: json.RawMessage(`{"text":null}`)},
+		{Kind: OpSetTask, Before: json.RawMessage(`{}`)},
+		{Kind: OpMove, Before: json.RawMessage(`{"parent_id":"p"}`)},
+		{Kind: OpSetComplete, Before: json.RawMessage(`{}`)},
+		{Kind: OpDelete, Before: json.RawMessage(`{"deleted":false,"deleted_at":null}`)},
 	}
 	for _, o := range bad {
 		if _, err := o.DecodeBefore(); err == nil {
@@ -243,6 +260,19 @@ func TestInverse_InsertIsDeleteOfTheNode(t *testing.T) {
 	}
 	if d := b.(*DeleteFields); d.Deleted {
 		t.Errorf("got %+v", d)
+	}
+}
+
+func TestPayload_NullableFieldsMayBeNull(t *testing.T) {
+	ok := []Op{
+		{Kind: OpSetComplete, Before: json.RawMessage(`{"completed_at":null}`)},
+		{Kind: OpDelete, Before: json.RawMessage(`{"deleted":false,"deleted_at":null,"deleted_by":null}`)},
+		{Kind: OpEditText, Before: json.RawMessage(`{"text":"x","later":1}`)},
+	}
+	for _, o := range ok {
+		if _, err := o.DecodeBefore(); err != nil {
+			t.Errorf("%s: %v", o.Before, err)
+		}
 	}
 }
 

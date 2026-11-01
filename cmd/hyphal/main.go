@@ -1,4 +1,4 @@
-// Command hyphal is the terminal outliner (§1). Until the CLI lands in P1-25
+// Command hyphal is the local-first outliner (§1). Until the CLI lands in P1-25
 // it only reports its version.
 package main
 

@@ -24,8 +24,8 @@ func (v Violation) String() string {
 // leaves are the dependency-free leaf packages (plan/ARCHITECTURE.md §1, D-001).
 var leaves = []string{
 	"internal/model", "internal/ids", "internal/fracindex", "internal/textfold",
-	"internal/markup", "internal/dialect", "internal/opml", "internal/layout",
-	"internal/keymap", "internal/config", "internal/clipboard", "internal/platform",
+	"internal/markup", "internal/dialect", "internal/opml",
+	"internal/keymap", "internal/config", "internal/platform",
 }
 
 // leafEdges are the only imports allowed between leaves besides model.
@@ -33,19 +33,14 @@ var leafEdges = map[string][]string{
 	"internal/markup":  {"internal/textfold"},
 	"internal/dialect": {"internal/markup", "internal/ids"},
 	"internal/opml":    {"internal/markup"},
-	"internal/layout":  {"internal/markup"},
 }
 
 // approvedModules are the third-party modules of plan/ARCHITECTURE.md §3.
 // Adding one needs the human's approval (plan/README.md §4).
 var approvedModules = []string{
-	"charm.land/bubbletea/v2",
-	"charm.land/lipgloss/v2",
-	"charm.land/bubbles/v2",
-	"github.com/charmbracelet/x/exp/teatest/v2",
+	"github.com/coder/websocket",
 	"github.com/spf13/cobra",
 	"modernc.org/sqlite",
-	"github.com/ncruces/go-sqlite3",
 	"github.com/rivo/uniseg",
 	"golang.org/x/text",
 	"golang.org/x/sys",
@@ -55,13 +50,12 @@ var approvedModules = []string{
 }
 
 // sqlImports may only be imported by the store layer (§9.2).
-var sqlImports = []string{"database/sql", "modernc.org/sqlite", "github.com/ncruces/go-sqlite3"}
+var sqlImports = []string{"database/sql", "modernc.org/sqlite"}
 
 // allowedInternal returns the module-relative packages that rel may import,
 // and false if rel is not a package named in plan/ARCHITECTURE.md §1.
 func allowedInternal(rel string) ([]string, bool) {
 	withLeaves := func(pkgs ...string) []string { return append(pkgs, leaves...) }
-	tuiLayer := withLeaves("internal/core", "internal/store", "internal/tui/theme", "internal/tui/pageview")
 	switch {
 	case slices.Contains(leaves, rel):
 		return append([]string{"internal/model"}, leafEdges[rel]...), true
@@ -74,18 +68,18 @@ func allowedInternal(rel string) ([]string, bool) {
 		return withLeaves("internal/store"), true
 	case rel == "internal/cli":
 		return withLeaves("internal/core", "internal/store"), true
-	case rel == "internal/tui", rel == "internal/tui/theme", rel == "internal/tui/pageview":
-		return tuiLayer, true
-	case rel == "internal/tui/tuitest":
-		return append(tuiLayer, "internal/tui", "internal/testgen"), true
+	case rel == "internal/server", rel == "internal/server/theme":
+		return withLeaves("internal/core", "internal/store", "internal/web", "internal/server/theme"), true
+	case rel == "internal/server/servertest":
+		return withLeaves("internal/core", "internal/store", "internal/web", "internal/server", "internal/server/theme", "internal/testgen"), true
+	case rel == "internal/web":
+		return nil, true
 	case rel == "internal/testgen":
 		return withLeaves("internal/core", "internal/store"), true
 	case rel == "internal/archtest":
 		return nil, true
 	case rel == "cmd/hyphal":
-		return []string{"internal/cli", "internal/tui"}, true
-	case rel == "cmd/hyphal-keyprobe":
-		return []string{"internal/keymap"}, true
+		return []string{"internal/cli"}, true
 	}
 	return nil, false
 }

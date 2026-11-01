@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -259,6 +260,26 @@ func TestOpen_LeavesOtherFilesAlone(t *testing.T) {
 		t.Errorf("got %v", err)
 	}
 
+	// A meta table that looks like ours but has another format, or none.
+	for name, rows := range map[string]string{
+		"no format":    `INSERT INTO meta VALUES ('schema_version', '1')`,
+		"other format": `INSERT INTO meta VALUES ('schema_version', '1'), ('format_id', 'other')`,
+		"older other":  `INSERT INTO meta VALUES ('schema_version', '0'), ('format_id', 'other')`,
+		"no version":   `INSERT INTO meta VALUES ('format_id', 'tree-outline')`,
+	} {
+		path := filepath.Join(t.TempDir(), "foreign.db")
+		conn := openTestDB(t, path)
+		if _, err := conn.Exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT); ` + rows); err != nil {
+			t.Fatal(err)
+		}
+		if err := conn.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Open(path, OpenOptions{Create: true}); !errors.Is(err, ErrNotOutline) {
+			t.Errorf("%s: got %v", name, err)
+		}
+	}
+
 	text := filepath.Join(t.TempDir(), "notes.db")
 	content := []byte(strings.Repeat("not a database\n", 100))
 	if err := os.WriteFile(text, content, 0o600); err != nil {
@@ -269,6 +290,154 @@ func TestOpen_LeavesOtherFilesAlone(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(text); string(got) != string(content) {
 		t.Error("text file changed")
+	}
+}
+
+func TestOpen_ConcurrentCreate(t *testing.T) {
+	ctx := context.Background()
+	for range 20 {
+		path := filepath.Join(t.TempDir(), "outline.db")
+		roots := make([]string, 16)
+		var wg sync.WaitGroup
+		for i := range roots {
+			wg.Go(func() {
+				db, err := Open(path, OpenOptions{Create: true})
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				defer func() { _ = db.Close() }()
+				root, _, err := db.Meta(ctx, "root_id")
+				if err != nil {
+					t.Error(err)
+				}
+				roots[i] = root
+			})
+		}
+		wg.Wait()
+		if roots[0] == "" || len(slices.Compact(slices.Clone(roots))) != 1 {
+			t.Errorf("roots: %v", roots)
+		}
+	}
+}
+
+func TestOpen_ReadOnlyDoesNotWrite(t *testing.T) {
+	ctx := context.Background()
+
+	// A file SQLite can't write to still opens and reads.
+	path := filepath.Join(t.TempDir(), "outline.db")
+	first := openNew(t, path)
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	db, err := Open(path, OpenOptions{ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, _, err := db.Meta(ctx, "schema_version"); err != nil || v != "1" {
+		t.Errorf("0400 file: schema_version %q, %v", v, err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// A file in another journal mode, such as a copy, keeps it.
+	path = filepath.Join(t.TempDir(), "copy.db")
+	first = openNew(t, path)
+	if _, err := first.sql.Exec(`PRAGMA journal_mode=DELETE`); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = Open(path, OpenOptions{ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	var mode string
+	if err := db.sql.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil || mode != "delete" {
+		t.Errorf("journal_mode %q, %v", mode, err)
+	}
+}
+
+func TestReadTx(t *testing.T) {
+	ctx := context.Background()
+	read := func(db *DB) error {
+		tx, err := db.readTx(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = tx.Rollback() }()
+		return tx.QueryRowContext(ctx, `SELECT count(*) FROM nodes`).Scan(new(int))
+	}
+	path := filepath.Join(t.TempDir(), "outline.db")
+	writer := openNew(t, path)
+	if err := read(writer); err != nil {
+		t.Errorf("writable: %v", err)
+	}
+
+	// A read doesn't wait for a write in progress.
+	tx, err := writer.sql.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	other, err := Open(path, OpenOptions{BusyTimeout: 50 * time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = other.Close() }()
+	if err := read(other); err != nil {
+		t.Errorf("during a write: %v", err)
+	}
+
+	ro, err := Open(path, OpenOptions{ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ro.Close() }()
+	if err := read(ro); err != nil {
+		t.Errorf("read-only: %v", err)
+	}
+}
+
+func TestSnapshot_SameSecondKeepsNameFormat(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	dir := t.TempDir()
+	db, err := Open(filepath.Join(dir, "outline.db"), OpenOptions{Create: true, Clock: func() time.Time { return at }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	var got []string
+	for range 2 {
+		path, err := db.snapshotTo(ctx, "daily")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, filepath.Base(path))
+	}
+	want := []string{"outline-20261101T120000Z-daily.db", "outline-20261101T120001Z-daily.db"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestMigrate_NewFileTakesNoSnapshot(t *testing.T) {
+	ctx := context.Background()
+	withMigrations(t, Migration{From: 1, To: 2, SQL: `CREATE TABLE added (id INTEGER PRIMARY KEY)`})
+	dir := t.TempDir()
+	db := openNew(t, filepath.Join(dir, "outline.db"))
+	if v, _, _ := db.Meta(ctx, "schema_version"); v != "2" {
+		t.Errorf("schema_version %q", v)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "snapshots")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("snapshots directory: %v", err)
 	}
 }
 

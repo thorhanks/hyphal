@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/thorhanks/hyphal/internal/model"
 )
@@ -37,14 +38,17 @@ func knownVersion() int {
 }
 
 // migrate runs the pending migrations, after one snapshot of the database as
-// it stands (§7.4, §8.5). A failed snapshot stops before anything changes.
-func (db *DB) migrate(ctx context.Context, known int) error {
+// it stands (§7.4, §8.5). A failed snapshot stops before anything changes. A
+// file created by this open holds nothing to protect, so it takes no snapshot.
+func (db *DB) migrate(ctx context.Context, known int, snapshot bool) error {
 	version, err := readVersion(ctx, db.sql)
 	if err != nil || version >= known {
 		return err
 	}
-	if _, err := db.snapshotTo(ctx, "pre-migration"); err != nil {
-		return fmt.Errorf("snapshot before migrating: %w", err)
+	if snapshot {
+		if _, err := db.snapshotTo(ctx, "pre-migration"); err != nil {
+			return fmt.Errorf("snapshot before migrating: %w", err)
+		}
 	}
 	for _, m := range migrations {
 		if m.From < version {
@@ -119,13 +123,13 @@ func (db *DB) snapshotTo(ctx context.Context, reason string) (string, error) {
 	return path, nil
 }
 
-// newSnapshotFile creates the file, never reusing a name taken in the same second.
+// newSnapshotFile creates the file. If the name is taken it moves to the next
+// free second, so names always keep the D-014 format.
 func (db *DB) newSnapshotFile(reason string) (string, *os.File, error) {
 	name := strings.TrimSuffix(filepath.Base(db.path), filepath.Ext(db.path))
-	stamp := model.NewTime(db.opts.Clock()).Format("20060102T150405Z")
-	base := fmt.Sprintf("%s-%s-%s", name, stamp, reason)
-	path := filepath.Join(db.opts.SnapshotDir, base+".db")
-	for i := 2; ; i++ {
+	for at := model.NewTime(db.opts.Clock()); ; at.Time = at.Add(time.Second) {
+		stamp := at.Format("20060102T150405Z")
+		path := filepath.Join(db.opts.SnapshotDir, fmt.Sprintf("%s-%s-%s.db", name, stamp, reason))
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
 			return path, f, nil
@@ -133,6 +137,5 @@ func (db *DB) newSnapshotFile(reason string) (string, *os.File, error) {
 		if !errors.Is(err, fs.ErrExist) {
 			return "", nil, err
 		}
-		path = filepath.Join(db.opts.SnapshotDir, fmt.Sprintf("%s-%d.db", base, i))
 	}
 }

@@ -71,7 +71,7 @@ Row rules enforced by `store.Commit`:
 | --- | --- | --- | --- |
 | `insert` | `null` | `{"parent_id","position","text","is_task","is_heading","completed_at","created_at"}` | `delete` of that node |
 | `delete` | `{"deleted":false,"deleted_at":null,"deleted_by":null}` | `{"deleted":true,"deleted_at":"…","deleted_by":"<cs>","merged_into":"<id>"?}` | `restore` |
-| `restore` | `{"deleted":true,"deleted_at":"…","deleted_by":"…"}` | `{"deleted":false,"deleted_at":null,"deleted_by":null}` | `delete` (with the before values) |
+| `restore` | `{"deleted":true,"deleted_at":"…","deleted_by":"…","merged_into":"<id>"?}` | `{"deleted":false,"deleted_at":null,"deleted_by":null}` | `delete` (with the before values) |
 | `edit_text` | `{"text":"…"}` | `{"text":"…"}` | swap |
 | `edit_page` | `{"markdown":"…"}` or `null` (create) | `{"markdown":"…"}` or `null` (delete) | swap |
 | `move` | `{"parent_id","position"}` | `{"parent_id","position"}` | swap |
@@ -80,7 +80,8 @@ Row rules enforced by `store.Commit`:
 | `set_complete` | `{"completed_at":"…"\|null}` | same | swap |
 | `set_star` | `{"starred_at":"…"\|null}` | same | swap |
 
-- Nullable fields are present with `null`, never omitted (except `merged_into`, present only for merges).
+- Nullable fields are present with `null`, never omitted (except `merged_into`, present only on a merge's `delete` and on the `before` of the `restore` that undoes it). The store takes `merged_into` from the op as given, because no row holds it, and recomputes the rest of `before` (D-049).
+- A `delete` made by inverting an `insert` arrives at `store.Commit` with `deleted_at` and `deleted_by` null. Commit sets them per §4 before recording the op, so recorded history never holds `"deleted":true` with null values (D-049).
 - Ordering inside a change set matters: ops apply in `ops.id` order. Planners emit parents before children for inserts and restores, and children before parents for deletes.
 - **"Changed since"** (revert and undo, §5.6, §8.2): a field is skipped when its current value differs from the op's `after` value. Skipped fields are reported as `{"node_id","kind","field"}`.
 - Undo: new change set, `undo_of = <undone id>`, ops = inverses in reverse order. Redo: inverse of the undo change set, `undo_of = <undo change set id>` (D-009).

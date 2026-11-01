@@ -36,11 +36,11 @@ func helperWrite(path string) error {
 	return err
 }
 
-// openTestDB opens path with the store's pragmas and a table t where every
-// commit writes ten rows that share one cs value.
+// openTestDB opens path in WAL mode with the store's pragmas and a table t where
+// every commit writes ten rows that share one cs value.
 func openTestDB(t *testing.T, path string) *sql.DB {
 	t.Helper()
-	db, err := sql.Open(driverName, dsn(path, 5*time.Second))
+	db, err := sql.Open(driverName, dsn(path, 5*time.Second, "journal_mode(WAL)"))
 	if err != nil {
 		t.Fatal(err)
 	}
