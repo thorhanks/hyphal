@@ -21,9 +21,10 @@ type OutlineOptions struct {
 
 // Outline couples a Tree with its store (ARCHITECTURE §4.3).
 type Outline struct {
-	db   *store.DB
-	tree *Tree
-	opts OutlineOptions
+	db     *store.DB
+	tree   *Tree
+	opts   OutlineOptions
+	typing *Typing // nil when no typing is open (§7.3)
 }
 
 // OpenOutline loads the outline from db.
@@ -65,16 +66,26 @@ func (o *Outline) LoadPages(ctx context.Context) error {
 }
 
 // Do commits a plan and applies it to the tree, and returns the change set's
-// ID, or "" for a no-op. The commit comes first, so a refused plan leaves the
-// tree as it was.
+// ID, or "" for a no-op. Open typing seals first (§7.3). The commit comes first,
+// so a refused plan leaves the tree as it was.
 func (o *Outline) Do(ctx context.Context, p Plan) (model.ChangeSetID, error) {
 	if p.NoOp || p.ChangeSet == nil {
 		return "", nil
 	}
+	if _, _, err := o.Seal(ctx); err != nil {
+		return "", err
+	}
+	return o.commit(ctx, p)
+}
+
+// commit writes a plan and applies it to the tree. Once written, any open typing
+// is over: only seal gets here with one, since Do seals first.
+func (o *Outline) commit(ctx context.Context, p Plan) (model.ChangeSetID, error) {
 	res, err := o.db.Commit(ctx, *p.ChangeSet, nil, nil)
 	if err != nil {
 		return "", err
 	}
+	o.typing = nil
 	if err := o.tree.Apply(res.ChangeSet); err != nil {
 		return "", fmt.Errorf("commit landed but the tree can't follow: %w", err)
 	}

@@ -267,10 +267,10 @@ func (o *Outline) Undo() (Plan, error)
 func (o *Outline) Redo() (Plan, error)
 
 // Typing (§7.3)
-type Typing struct { Node model.NodeID; Before string; Opened, Last time.Time }
-func (o *Outline) TypeInto(node model.NodeID, newText string, now time.Time)
-func (o *Outline) SealIfDue(now time.Time) bool  // 2 s idle or 5 s since open
-func (o *Outline) Seal() (model.ChangeSetID, bool)
+type Typing struct { Node model.NodeID; Before, Text string; Opened, Last time.Time }
+func (o *Outline) TypeInto(ctx context.Context, node model.NodeID, newText string, now time.Time) error
+func (o *Outline) SealIfDue(ctx context.Context, now time.Time) (bool, error)  // 2 s idle or 5 s since open
+func (o *Outline) Seal(ctx context.Context) (model.ChangeSetID, bool, error)
 func (o *Outline) PendingTyping() *Typing
 
 // Committer (server): single FIFO worker for commits and reloads (D-007)
