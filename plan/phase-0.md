@@ -4,12 +4,12 @@ Spec: §11 row 0, §12.4. Exit gate: **export and import are identical; a crash 
 
 Phase 0 code is production code, not throwaway: the leaf packages, the store, the core tree and the web skeleton built here are the foundations of Phase 1. "Spike" cards also produce measurement reports in `plan/reports/`.
 
-**Done:** P0-01 to P0-11, plus spike P0-W1 (`plan/reports/p0-w1-web-ui.md`). **Withdrawn:** P0-17 (wrap engine; the browser does layout). P0-18, P0-19 and P0-23 were rewritten for the web UI.
+**Done:** P0-01 to P0-12, plus spike P0-W1 (`plan/reports/p0-w1-web-ui.md`). **Withdrawn:** P0-17 (wrap engine; the browser does layout). P0-18, P0-19 and P0-23 were rewritten for the web UI.
 
 ## Dependency graph
 
 ```text
-Done: P0-01 · P0-02 ids · P0-03 fracindex · P0-04 textfold · P0-05 driver · P0-06 store open/schema · P0-07 model · P0-08 commit · P0-09 load+tree · P0-10 planners · P0-11 typing seal · P0-W1 web spike
+Done: P0-01 · P0-02 ids · P0-03 fracindex · P0-04 textfold · P0-05 driver · P0-06 store open/schema · P0-07 model · P0-08 commit · P0-09 load+tree · P0-10 planners · P0-11 typing seal · P0-12 JSON export/import · P0-W1 web spike
 
                                         P0-08 commit+history ─┬─ P0-12 JSON export/import ─ P0-14 round-trip props
                                                               ├─ P0-09 load+tree ─ P0-10 basic planners ─┬─ P0-11 typing seal
@@ -213,7 +213,7 @@ Acceptance criteria:
 
 ---
 
-### P0-12 · JSON export and import (store)
+### P0-12 · JSON export and import (store) · Done
 Type: impl · Packages: `internal/store` · Depends on: P0-08 · Spec: §7.5 · CONTRACTS §6
 
 Deliverables: `ExportJSON(w, withHistory, exportedBy)`, `ImportJSON(r, mode)`; modes `ImportEmpty` (error `ErrNotEmpty` if the DB holds anything besides Home — Inbox included, §7.5 mentions the first-run sample) and `ImportReplace` (takes a `pre-import` snapshot, then replaces all tables in one transaction). Validate before writing (CONTRACTS §6, §8). Writing to a file is atomic (temp + rename, 0600) — provide `WriteFileAtomic` in `platform`.

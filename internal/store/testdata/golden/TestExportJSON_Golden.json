@@ -1,0 +1,154 @@
+{
+  "format": "hyphal-export",
+  "format_version": 1,
+  "schema_version": 1,
+  "exported_by": "test 1.0",
+  "exported_at": "2026-11-01T13:00:00.000Z",
+  "meta": {
+    "format_id": "tree-outline",
+    "inbox_id": "cccccccccccc",
+    "root_id": "r00t00000000",
+    "ui_opened": "1"
+  },
+  "nodes": [
+    {
+      "id": "aaaaaaaaaaaa",
+      "parent_id": "r00t00000000",
+      "position": "a0",
+      "text": "<red>Alpha</red> & **bold**",
+      "is_task": true,
+      "is_heading": false,
+      "completed_at": "2026-11-01T13:00:00.000Z",
+      "created_at": "2026-11-01T12:00:00.000Z",
+      "updated_at": "2026-11-01T13:00:00.000Z",
+      "version": 3,
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "bbbbbbbbbbbb",
+      "parent_id": "r00t00000000",
+      "position": "a1",
+      "text": "trashed",
+      "is_task": false,
+      "is_heading": false,
+      "completed_at": null,
+      "created_at": "2026-11-01T12:00:00.000Z",
+      "updated_at": "2026-11-01T12:00:00.000Z",
+      "version": 2,
+      "deleted_at": "2026-11-01T13:00:00.000Z",
+      "deleted_by": "s00000000002"
+    },
+    {
+      "id": "cccccccccccc",
+      "parent_id": "aaaaaaaaaaaa",
+      "position": "a0",
+      "text": "日本語 child",
+      "is_task": false,
+      "is_heading": true,
+      "completed_at": null,
+      "created_at": "2026-11-01T12:00:00.000Z",
+      "updated_at": "2026-11-01T12:00:00.000Z",
+      "version": 1,
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "r00t00000000",
+      "parent_id": null,
+      "position": "a0",
+      "text": "",
+      "is_task": false,
+      "is_heading": false,
+      "completed_at": null,
+      "created_at": "2026-11-01T12:00:00.000Z",
+      "updated_at": "2026-11-01T12:00:00.000Z",
+      "version": 1,
+      "deleted_at": null,
+      "deleted_by": null
+    }
+  ],
+  "pages": [
+    {
+      "node_id": "aaaaaaaaaaaa",
+      "markdown": "# Page\n\nBody\n",
+      "updated_at": "2026-11-01T13:00:00.000Z",
+      "version": 2
+    }
+  ],
+  "stars": [
+    {
+      "node_id": "aaaaaaaaaaaa",
+      "starred_at": "2026-11-01T13:00:00.000Z"
+    }
+  ],
+  "view_state": [
+    {
+      "node_id": "aaaaaaaaaaaa",
+      "collapsed": true
+    },
+    {
+      "node_id": "r00t00000000",
+      "collapsed": false
+    }
+  ],
+  "ui_state": [
+    {
+      "key": "cursor:x",
+      "value": {
+        "node": "aaaaaaaaaaaa",
+        "offset": 3
+      }
+    },
+    {
+      "key": "zoom",
+      "value": "aaaaaaaaaaaa"
+    }
+  ],
+  "history": {
+    "change_sets": [
+      {
+        "id": "s00000000001",
+        "at": "2026-11-01T12:00:00.000Z",
+        "source": "ui",
+        "description": "Added a page",
+        "undo_of": null
+      },
+      {
+        "id": "s00000000002",
+        "at": "2026-11-01T13:00:00.000Z",
+        "source": "cli",
+        "description": null,
+        "undo_of": "s00000000001"
+      }
+    ],
+    "ops": [
+      {
+        "id": 1,
+        "change_set_id": "s00000000001",
+        "node_id": "aaaaaaaaaaaa",
+        "kind": "edit_page",
+        "before": null,
+        "after": {
+          "markdown": "<b>"
+        }
+      },
+      {
+        "id": 2,
+        "change_set_id": "s00000000002",
+        "node_id": "bbbbbbbbbbbb",
+        "kind": "delete",
+        "before": {
+          "deleted": false,
+          "deleted_at": null,
+          "deleted_by": null
+        },
+        "after": {
+          "deleted": true,
+          "deleted_at": "2026-11-01T13:00:00.000Z",
+          "deleted_by": "s00000000002"
+        }
+      }
+    ]
+  }
+}
