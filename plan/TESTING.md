@@ -81,7 +81,7 @@ h.Advance(3 * time.Second)           // fake clock; fires ticks → typing seals
 h.AssertOutline("- Alpha\n  - Hi‸\n- Beta")
 h.AssertMessage("Moved \"Alpha\" to Trash · Ctrl+Z undoes")
 h.AssertBanner("")                   // none
-h.Second()                           // a second tab's session, for read-only and takeover tests
+h.Second()                           // a second window's session
 h.DB()                               // *store.DB to assert history rows
 ```
 

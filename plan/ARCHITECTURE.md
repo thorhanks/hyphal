@@ -74,14 +74,14 @@ Pin exact versions in `go.mod`. Adding any other Go module requires asking (READ
 | `github.com/coder/websocket` | One WebSocket per tab (§9.1); used by the spike |
 | `github.com/spf13/cobra` | CLI |
 | `modernc.org/sqlite` | Chosen in P0-05 |
-| `github.com/rivo/uniseg` | Graphemes and word boundaries on the server |
+| `github.com/rivo/uniseg` | Grapheme boundaries for search matches |
 | `golang.org/x/text` | Case folding, normalization |
 | `golang.org/x/sys/unix` | flock |
 | `github.com/sahilm/fuzzy` | Palettes (re-evaluated in P0-20) |
 | `github.com/pelletier/go-toml/v2` | Config (needs positions for error lines; D-012) |
 | `pgregory.net/rapid` | Property tests |
 
-**Frontend: none.** The UI imports nothing external (SPEC §2.7), with no npm packages, CDNs, polyfills, bundlers or transpilers in what ships. Each exception needs Thor's approval and a DECISIONS entry.
+**Frontend: CodeMirror 6 only,** for pages and the settings editor (SPEC §9.1, D-046). Otherwise the UI imports nothing external (SPEC §2.7), with no npm packages, CDNs, polyfills, bundlers or transpilers in what ships. Each exception needs Thor's approval and a DECISIONS entry.
 
 **Development only:** `@playwright/test` under `e2e/`, approved by Thor on 2026-10-31. Nothing under `e2e/` is embedded or shipped.
 

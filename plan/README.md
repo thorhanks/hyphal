@@ -58,7 +58,7 @@ Card types:
 - `spike`: measurement or evaluation; output is a report in `plan/reports/` plus any reusable code.
 - `decision`: write a proposal with options and a recommendation; stop for the human.
 - `gate`: verify a phase exit gate with automated checks and a report; stop for human sign-off where the spec requires a human checkpoint.
-- `human`: work only a human can do (real browsers, real terminals, a real Workflowy export, daily use). The agent prepares tooling and instructions, then stops.
+- `human`: work only a human can do (real browsers, a real Workflowy export, daily use). The agent prepares tooling and instructions, then stops.
 
 ## 4. Workflow per card
 

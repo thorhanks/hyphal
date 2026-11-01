@@ -17,7 +17,7 @@ P0-07 model ─ P0-06 store open/schema ─ P0-08 commit+history ─┬─ P0-12
                                                               │                                         └─ P0-15 crash injection
                                                               └─ P0-20 perf spike (after P0-10)
 P0-16 markup ───────────────────────────┐
-P0-10, P0-11 ─ P0-18 web skeleton ──────┴─ P0-19 keymap + keyprobe ─ P0-23 (human) browser, IME and terminal checks
+P0-10, P0-11 ─ P0-18 web skeleton ──────┴─ P0-19 keymap + keyprobe ─ P0-23 (human) browser and IME checks
 P0-21 growth spike (after P0-11) ─ P0-22 gate
 ```
 
@@ -287,7 +287,7 @@ Goal: the real foundation replacing `internal/webspike`: a server over the real 
 
 Deliverables:
 - Add `github.com/coder/websocket`. Reconcile the package directories with ARCHITECTURE §1 (remove `internal/tui`, `internal/layout`, `internal/clipboard`; add `server`, `web`).
-- `server.Run`: loopback listener on a random port, Host and Origin checks, ticket → cookie exchange (D-041), CSP header, embedded assets, `/ws`, session goroutine (ARCHITECTURE §5), `hyphal serve [--dev] [--seed FILE]`. The `dev` build tag gates `--seed`, `window.__hyphal` and `/keyprobe`.
+- `server.Run`: loopback listener on the database's stable port (§9.3), Host and Origin checks, ticket → cookie exchange (D-041), CSP header, embedded assets, `/ws`, session goroutine (ARCHITECTURE §5), `hyphal serve [--dev] [--seed FILE]`. The `dev` build tag gates `--seed`, `window.__hyphal` and `/keyprobe`.
 - Protocol per CONTRACTS §12: `hello`, `welcome`, `text`, `action`, `window`, `state` with `textAck`.
 - `web/assets`: `index.html`, `tokens.css` with the `dark` values from SPEC §4.6, `base.css` with the `@layer` order, `<hyphal-app>` and `<hyphal-outline>`: row window with reuse by ID, one `contenteditable="plaintext-only"` focused row, Up/Down across wrapped lines and bullets at a stable column, Left/Right across edges, click to place the caret, the key queue, composition handling, runs rendered without `innerHTML`, marker highlights (D-042).
 - `servertest.Harness` (TESTING §4), `e2e/` with `package.json` pinned, `helpers.mjs`, ported spike tests. `Makefile` targets `e2e`, `web-lint`; `mise.toml` pins Node 22. CI runs `make e2e`.
@@ -356,7 +356,7 @@ Acceptance criteria:
 
 ---
 
-### P0-23 · Browser, IME and terminal checks
+### P0-23 · Browser and IME checks
 Type: human · Depends on: P0-19 · Spec: §6.4, §9.6
 
 These close what spike P0-W1 couldn't automate.

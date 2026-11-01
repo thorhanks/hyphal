@@ -32,21 +32,12 @@ We are building a local-first infinite outliner, inspired by Workflowy, for Linu
 **Core scenarios:**
 
 1. **Session.** Launch from the app launcher or a shell and type immediately. Enter adds bullets, Tab nests them. Collapse a project, zoom into a task, filter for a word, close the window.
-2. **Quick capture.** From any shell (`hyphal add "Call the dentist"`) or a Hyprland keybind (`hyphal capture --window`), text lands in the Inbox node without opening the full outline.
+2. **Quick capture.** From any shell (`hyphal add "Call the dentist"`) or a Hyprland keybind (`hyphal capture`), text lands in the Inbox node without opening the full outline.
 3. **Write at length.** Press a key to open a bullet's page and write Markdown right in the app. Everything is edited in Hyphal; no external editor is involved.
 4. **Recover.** A week later, restore a deleted branch from the Trash, or revert one bad change made by a script without touching anything else.
 5. **Leave.** `hyphal export --format markdown` produces a readable outline that works anywhere, at any time.
 
-**Comparison set** (evaluate hands-on before Phase 1 ends):
-
-| Tool | Why it matters to us |
-| --- | --- |
-| Workflowy | The editing feel we are matching: zoom, Esc selection, Enter/Backspace rules |
-| Logseq | Closest precedent: a Markdown-file outliner with block IDs. Study its ID scheme and its file-sync problems |
-| Obsidian Outliner plugin | Outlining inside plain Markdown files; the interop target |
-| Dynalist, Tana | Other web outliners; baseline for speed and keyboard handling in a browser |
-| Bike, TaskPaper | Writing-first outliner feel; simple file formats |
-| Org-mode | Mature plaintext outlining, folding and refiling |
+**Comparison set** (evaluate hands-on before Phase 1 ends): Workflowy, for the editing feel we are matching (zoom, Esc selection, Enter and Backspace rules), and Obsidian, for live preview and the look of Markdown pages.
 
 Our claimed difference: Workflowy-grade editing with local data in an open format, complete and reversible history, and a UI you can restyle with one CSS file.
 
@@ -88,7 +79,7 @@ Our claimed difference: Workflowy-grade editing with local data in an open forma
 - Every other bullet is a node with editable text, ordered children, exactly one parent, and a permanent random ID (§7.2).
 - No distinction between bullet, task or project. Any bullet can also carry a Markdown page (§5.7). Completion is an attribute any node can have.
 - **Zoom** makes any node the temporary root. The zoomed node is shown as a heading, with only its descendants below it. The heading can be focused and edited like a bullet.
-- **Zoom is in the URL.** Each zoom has its own address (`/#/<node-id>`, Home is `/`), so browser Back and Forward move through zooms and a zoom can be bookmarked. The address holds only the node ID.
+- **Zoom is in the URL.** Each zoom has its own address (`/#/<node-id>`, Home is `/`), so browser Back and Forward move through zooms and a zoom can be bookmarked. The address holds only the node ID. Each database keeps a stable port (§9.3), so these addresses last. A bookmark needs the server running; `hyphal open <node>` starts it and goes there.
 - **Breadcrumbs** show the path to the zoom target. They always start at Home, use `›` as the separator, and each crumb is a link. Long paths are truncated in the middle: `Home › … › Development › Tooltips`.
 - Collapse/expand is independent of zoom and persists across sessions (§7.2).
 - No artificial depth limit.
@@ -98,18 +89,18 @@ Our claimed difference: Workflowy-grade editing with local data in an open forma
 Structure only; the look comes from the theme.
 
 ```text
-Home › Projects                                            outline  ●
+Home › Projects                     [icons]    outline  ●
 
 Projects
 
-▾ ControllerCraft
-  ▾ Development
-    • Inventory navigation        (completed: dimmed, struck)
-    • Improve controller mappings
-    • Fix tooltip positioning
-  ▸ Design notes
+● ControllerCraft
+  ● Development
+    · Inventory navigation        (completed: dimmed, struck)
+    · Improve controller mappings
+    · Fix tooltip positioning
+  ✶ Design notes   14             (collapsed: Lit strands, hidden count)
 
-▸ Lighthouse
+✶ Lighthouse   6
 
 Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 ```
@@ -121,7 +112,7 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 | Collapsed, has children | Lit strands: a spore with strands reaching right, each ending in an accent-colored tip | Clicking the glyph expands. Strands show the hidden bullets (all descendants): 2 up to 4, 3 up to 9, 4 up to 24, 5 from 25 |
 | Expanded, has children | Large spore (a slightly irregular dot) | Clicking the glyph collapses |
 | Leaf | Small spore (a slightly irregular dot) | |
-| Task, open / done | `☐` / `☑` after the bullet glyph | Native-feeling checkbox behavior; clicking toggles completion |
+| Task, open / done | A drawn checkbox after the bullet glyph | Native-feeling checkbox behavior; clicking toggles completion |
 | Heading style | Bold text, extra space above | |
 | Completed | Dimmed + strikethrough text; glyph unchanged | |
 | Selected (block selection) | `selection` token background on the whole row | |
@@ -141,7 +132,7 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 **Must have:** restyling the app takes one CSS file and no code changes. On Omarchy, the app matches the desktop theme and follows every theme change while running, with no reload and no configuration.
 
 - **Tokens are the contract.** All colors, fonts, sizes, spacing, radii, glyphs and motion are CSS custom properties on `:root`, listed in `internal/web/assets/tokens.css` and documented in `docs/theming.md`. Component CSS uses tokens only, never raw values; a test fails on a raw color or font outside `tokens.css` and the bundled themes.
-- **Cascade layers set the order:** `@layer reset, tokens, components, theme, user`. A theme can't be beaten by component specificity, and a user stylesheet wins over everything.
+- **Cascade layers set the order:** `@layer reset, tokens, components, theme, user`. A theme can't be beaten by our components' specificity, and a user stylesheet wins over them all. CodeMirror's own base styles sit outside the layers, so a small adapter sets the properties they fix from tokens; a theme changes pages through tokens or `.lp-*` classes.
 - **Light DOM.** Web components render into the light DOM, so any selector in a theme can reach any part of the UI. Shadow DOM is not used: it would hide parts from themes and breaks text selection across browsers.
 - **Themes are files.** A theme is one `.css` file that overrides tokens in `@layer theme`, and may restyle components too. The app ships `light` and `dark` plus `auto` (follows `prefers-color-scheme`). Users add themes by dropping a file in `~/.config/hyphal/themes/`. The app reloads a theme when its file changes, without a page reload.
 - **`omarchy` theme.** When `~/.local/state/omarchy/current/theme/colors.toml` exists and `theme` is `auto`, the app maps that file's roles onto tokens (`background`, `foreground`, `accent`, `muted`, `selection`, the named colors and `mode`) and follows changes while running. Only hex colors and `mode` are accepted, so a theme file can't inject CSS. The file's path and format belong to Omarchy and may change, so a missing or unreadable file falls back to `auto` without an error.
@@ -154,12 +145,13 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 
 - **Save indicator:** nothing when saved; `●` while typing is not yet committed (until it seals, §7.3); a red label if a write fails or the local server can't be reached.
 - **Screen layout,** top to bottom, all inside the reading column:
-  1. **Header row:** breadcrumb left; database name (the file name without `.db`) and save indicator right.
+  1. **Header row:** breadcrumb left; icon strip (§4.6), database name (the file name without `.db`) and save indicator right.
   2. **Banner row,** only while a banner is active (below).
   3. The outline (or page, or full-screen view), which scrolls.
   4. **Footer row,** fixed to the bottom of the window. It shows one of three things, in priority order: a message, the filter query while a filter is active (`/ tooltip · 12 matches`), or contextual key hints.
-- **Footer hints:** contextual keys for the current state; the `footer` setting turns them off (messages and the filter still use the row). F1 (or `?` in block selection) opens the full help overlay (§4.8).
-- **Messages** are the app's only transient feedback; nothing floats and nothing times out. A message replaces the footer's content and stays until the next keypress, then the footer returns to what it showed before. Messages confirm undoable actions (`Moved "Design notes" and 214 descendants to Trash · Ctrl+Z undoes`), say where a restore landed, report a clipboard failure, and explain a no-op key ("hints" elsewhere in this spec are messages). A newer message replaces an older one. The footer is an ARIA live region.
+- **Window title and icon:** the title is the zoomed bullet's text, or the database name at Home, so windows and tabs are easy to tell apart. The icon is a spore and thread, in the bundled assets.
+- **Footer hints:** contextual keys for the current state. `user.css` can hide them; messages and the filter still use the row. F1 (or `?` in block selection) opens the full help overlay (§4.8).
+- **Messages** are the app's only transient feedback; nothing floats and nothing times out. A message replaces the footer's content and stays until the next keypress or click, then the footer returns to what it showed before. Messages confirm undoable actions (`Moved "Design notes" and 214 descendants to Trash · Undo`, where Undo is clickable and Ctrl+Z works too), say where a restore landed, report a clipboard failure, and explain a no-op key ("hints" elsewhere in this spec are messages). A newer message replaces an older one. The footer is an ARIA live region.
 - **Banners:** persistent, for failed writes, a lost connection to the local server, a database opened read-only, a restore that just ran, or an invalid config. A banner stays until its cause is gone; an informational one (a restore that just ran) clears on the next change to the outline.
 - **Views on demand:** Trash (§4.8) and History open as temporary full-page views, not panels. No sidebar, no daily journal.
 - **First run:** the first time the UI opens a database (a flag in `meta`), it adds a short sample outline that teaches the core keys, unless the outline already holds anything besides an Inbox (for example after an import). Databases created by the CLI start with only Home, so scripts and agents get a clean outline.
@@ -183,17 +175,18 @@ The identity lives in shapes, so it survives any theme: threads, spore bullets a
 
 - **Icons.** A custom hand-drawn set in `internal/web/assets`: each icon is a recognizable shape drawn as one thread that ends in a small accent-colored tip. The set covers home, search, star, trash, history, page and commands, and grows with new features. No icon font or icon library.
 
-- **Centered reading column.** Text width is capped by the `--column` token (default about 90 characters; the `column_width` setting overrides it) and centered in wide windows. Breadcrumbs and status sit inside the same column.
+- **Centered reading column.** Text width is capped by the `--column` token (default 80 characters) and centered in wide windows. Breadcrumbs and status sit inside the same column.
 - **Inline formatting rendered, markers concealed.** `**bold**` shows as bold; the markers appear only on the bullet being edited, as in Obsidian's live preview (§5.8).
 - **Typographic hierarchy:**
   - Optional heading bullets: bold, with extra space above, for section-like nodes.
-  - A bullet with a page shows a dim `≡` page marker after its text. There is no page preview in the outline; zoom into the page to read it.
+  - A bullet with a page shows a dim page icon after its text. There is no page preview in the outline; zoom into the page to read it.
   - Muted breadcrumbs and footer; full-strength color only for text you wrote.
   - Tags as colored text ("chips"), not filled backgrounds by default (§5.9).
 - **Stability and motion:**
   - The caret never sits within `--scroll-margin` (default 3 rows) of the viewport's edge.
   - The caret's row stays fixed on screen when collapsing or expanding.
   - Scrolling keeps its position through virtualization (§9.3); content doesn't jump.
+  - **Zooming animates:** the bullet grows into the heading through the browser's View Transitions API. An engine without it zooms instantly, and the transition never delays typing.
   - Motion comes only from tokens, is brief, and is off under `prefers-reduced-motion`.
 - **Density modes:** *comfortable* (the default: a blank line between the top-level siblings of the current zoom) and *compact*, as `data-density` on the root element for CSS to act on. A heading-style bullet always gets space above it, except as the first row under the zoom heading, and this space is not added to the density space.
 - **Concealed markers** appear only on the focused bullet. When they reflow its line, the bullet's first row stays fixed on screen.
@@ -226,7 +219,7 @@ Omarchy is *omakase*: one beautiful, opinionated default, keyboard first, themed
 
 **Omakase defaults**
 
-- One carefully tuned default look and keymap. Settings exist for real needs (column width, density, keymap), not for every pixel; everything else is a theme.
+- One carefully tuned default look and keymap. Settings exist for real needs (density, keymap), not for every pixel; everything else is a theme or a line in `user.css`.
 - No settings screen. "Edit settings" in the command palette opens the commented `config.toml` in the built-in plain-text editor and reloads it on save.
 
 **Shared keyboard conventions**
@@ -242,7 +235,7 @@ The full keymap is in §6.4. The conventions it follows:
 
 - `hyphal` starts the server if needed and opens the UI (§9.3). It prefers an app window with no browser chrome (`--app=` on a Chromium-family browser, with its own window class under Hyprland), and otherwise opens a tab in the default browser. The `browser` setting overrides this.
 - On Linux, ships a `.desktop` entry and its own window class, so it launches from the app launcher and can be targeted by Hyprland window rules. On macOS it is launched from a terminal; there is no app bundle in V1.
-- **Capture window** (Phase 2): `hyphal capture --window` opens a small app window on the `/capture` route with its own class, which a window rule makes small and floating. Type one line and press Enter: it lands in the Inbox, and the window closes. Plain `hyphal capture` is a one-line prompt in the current terminal. The docs suggest a Super binding, checked against Omarchy's defaults.
+- **Capture window** (Phase 2): `hyphal capture` opens a small app window on the `/capture` route with its own class, which a window rule makes small and floating. Type one line and press Enter: it lands in the Inbox, and the window closes. `hyphal add` covers capture from a shell. The docs suggest a Super binding, checked against Omarchy's defaults.
 
 ### 4.8 Phase 1 screens
 
@@ -251,11 +244,11 @@ Phase 1 needs these screens besides the outline and the page. Later-phase screen
 - **Trash view** (full page, §8.3): one row per deletion, newest first: the deleted bullet's text, its former breadcrumb, the descendant count and the age. Enter previews the subtree read-only; `r` restores; `d` purges that deletion after a confirmation (purging is final, so purge and Empty Trash are the only actions in the app that ask for confirmation); Esc returns to the outline.
 - **Help overlay** (F1, `?`): every command in the current context with its key, generated from the keymap (§6.4), filterable by typing.
 - **Color picker** (`c` in block selection, or the command palette): an overlay listing the eight colors as swatches with their names, plus "No color". `1`–`8` (and `0` for No color) or arrows and Enter choose; Esc cancels.
-- **Read-only mode** (newer schema, failed integrity check, or another tab is editing): a persistent banner says why; everything works except changes, and any editing key shows a hint instead.
+- **Read-only mode** (newer schema or failed integrity check): a persistent banner says why; everything works except changes, and any editing key shows a hint instead.
 
 ### 4.9 Accessibility
 
-The outline is a WAI-ARIA `tree` with `treeitem` rows carrying level, expanded and selected state. The focused bullet is a real editable element, overlays are `<dialog>`, and every control is keyboard reachable. Tab is indent inside the outline, as in Workflowy; F6 moves focus out to the page's other regions. Native browser zoom works at any level. This is a floor, not a separate feature, and each screen's tests check it.
+The outline is a WAI-ARIA `tree` with `treeitem` rows carrying level, expanded and selected state, plus `aria-setsize` and `aria-posinset`, because only a window of rows is in the DOM. The focused bullet is a real editable element, overlays are `<dialog>`, and every control is keyboard reachable. Tab is indent inside the outline, as in Workflowy; F6 moves focus out to the page's other regions. Native browser zoom works at any level. This is a floor, not a separate feature, and each screen's tests check it.
 
 ## 5. Editing behavior
 
@@ -339,19 +332,19 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 
 ### 5.5 Paste and clipboard
 
-- Paste uses the browser's `paste` event, so any paste key or menu works and no clipboard permission is needed. Single-line paste inserts text, replacing any text selection.
+- Paste uses the browser's `paste` event, so any paste key or menu works and no clipboard permission is needed. Single-line paste inserts text, replacing any text selection. Pasting a URL over selected text makes it a link, in bullets and on pages.
 - Multi-line paste is parsed with the shared Markdown dialect (§7.5) into a subtree. Plain lines become bullets; indentation becomes nesting; `^id` suffixes are ignored, so pasted nodes always get new IDs.
   - Cursor at the end of a bullet: the subtree is inserted as siblings after it.
   - Cursor mid-text: the bullet is split first (§5.2), and the subtree goes between the two halves.
   - Empty bullet: the subtree replaces it.
   - In block selection: inserted as siblings after the selection.
-- Copy (block selection) writes the selected bullets and their descendants to the system clipboard as indented Markdown in the shared dialect: text with inline markup, task, completion and heading markers. Pages and IDs are not copied. Cut copies, then deletes to the Trash.
+- Copy (block selection) writes the selected bullets and their descendants to the system clipboard as indented Markdown in the shared dialect: text with inline markup, task, completion and heading markers. Pages and IDs are not copied. The copy also carries HTML with nested lists, so it pastes properly into email and documents; pasting into Hyphal uses the Markdown. Cut copies, then deletes to the Trash.
 - **Cut and paste is a move.** The app remembers its last cut. If pasted text is exactly the text that cut wrote, paste restores the cut bullets at the paste position instead of creating new ones: same IDs, pages, stars and history, as one change set (the cut and the move both stay undoable). Text pasted from anywhere else, or after the clipboard changed, creates new bullets as above. To copy a subtree with its pages, use Duplicate (§5.4). The `paste` event carries the text, so the app never reads the clipboard on its own.
 - **Clipboard transport:** the Async Clipboard API (`navigator.clipboard.write`). The Markdown comes from the server, so the write happens in the same user gesture through a `ClipboardItem` holding a promise where the browser supports it, and otherwise right after the reply. A failure shows a message. Phase 0 verifies this on all three browser engines (the spike verified Chromium only).
 
 ### 5.6 Undo and redo
 
-- **Undo is per session.** The server keeps an undo stack in memory for the editing tab. Each step is one change set you started from the UI; all the saves from one visit to a page count as one step. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the UI clears the redo steps. The server exiting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
+- **Undo is per session.** The server keeps one undo stack in memory, shared by all windows. Each step is one change set you started from the UI; all the saves from one visit to a page count as one step. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the UI clears the redo steps. The server exiting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
 - Changes from the CLI or an agent are never on the stack, so Ctrl+Z never undoes something you didn't do; they are reverted with `hyphal revert`.
 - If a later change from another source touched the same fields, undo follows the revert rule: those fields are skipped and reported (§8.2).
 - Typing coalesces into one step per node; the step closes when the typing operation seals (§7.3). Ctrl+Z first seals any open typing, so the typing just done is the step undone.
@@ -360,22 +353,23 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 ### 5.7 Pages
 
 - **Every bullet stays one line.** Long-form writing lives on an optional **page** attached to the bullet: a full Markdown document with headings, lists, code blocks, quotes and tables, as long as you like.
-- **Page zoom:** `p` in block selection opens the bullet's page, on a bullet without one an empty page. A page left empty is not created; clearing an existing page's text deletes the page, as one undoable change. Esc saves and returns to the outline in block selection on the page's bullet. Normal zoom (`z`) still shows only the bullet's children.
+- **Page zoom:** `p` in block selection, or the page icon, opens the bullet's page, on a bullet without one an empty page. A page has its own address (`/#/<id>/page`), so Back, Forward and bookmarks work as they do for zooms. A page left empty is not created; clearing an existing page's text deletes the page, as one undoable change. Esc saves and returns to the outline in block selection on the page's bullet. Normal zoom (`z`) still shows only the bullet's children.
 - **Live preview, one mode.** A page is always rendered and always editable, as in Obsidian. There is no separate view or edit mode.
   - **Rendered everywhere else.** Headings, emphasis, strikethrough, `==highlight==`, inline code, links, lists, task boxes, quotes, rules, tables and syntax-highlighted code blocks show as formatted text, with their markers hidden.
   - **Source where the cursor is.** Every line touched by the cursor or selection shows its Markdown, with markers dimmed, and is freely editable. A table or fenced code block opens whole when the cursor enters it.
   - **One document.** Arrow keys, clicking, selection, copy, delete and undo all work across blocks. Clicking rendered text lands on the same word in the source. Copy gives raw Markdown. Nothing reveals or hides during a mouse drag, so text never moves under the pointer.
   - **Task boxes** toggle on click, as an undoable edit, without moving the cursor.
   - **Links:** Ctrl+click or Ctrl+Enter follows the link; a plain click places the cursor. `[[links]]` zoom to their target (Phase 2).
-  - **Images** show only from `data:` URLs or the app itself. Pages never reach the network (§2.6), so a remote image shows its alt text.
+  - **Images** are not rendered in Phase 1: `![alt](url)` shows its alt text. Pasted and dropped images arrive with attachments in Phase 3 (§10.1). Pages never reach the network (§2.6).
   - **Raw HTML stays literal text** and never runs. Only the link schemes in §9.3 are followable.
-  - Editor: CodeMirror 6, the one approved frontend library (§9.1). The outline does not use it.
-- **Title:** the bullet's text is the page title. It is not stored in `pages.markdown`. It appears as a first line `# Title`, rendered as the page heading like any other. On save, the first line is the title if it is an H1 (`# …`): changing it renames the bullet. If the first line is not an H1, the bullet's text is unchanged and the whole text is the page. (So deleting the title line of a page whose body starts with `# Intro` renames the bullet to "Intro"; undo reverses it.)
+  - **Find:** Ctrl+F opens a find bar for this page, because the browser's find can't see text the editor hasn't drawn. Esc closes it first, then leaves the page.
+  - Editor: CodeMirror 6, the one approved frontend library (§9.1). The outline does not use it, and it loads the first time a page opens, so it never slows launch.
+- **Title:** the bullet's text is the page title, shown in a single-line field above the page and edited like a bullet (concealed markers, leading-marker conversion). Editing it renames the bullet. It is never part of `pages.markdown`. Enter or Down moves into the page, and Up from the page's first line moves back. A new page starts with the cursor in the page, not the title.
   - **Delete page** (command palette) removes the page from a bullet, as one undoable change.
-- **Saving** follows §7.3's sealing rules: after 2 s idle, 5 s open, and on leaving the page.
+- **Saving.** The browser sends the page's text within about 300 ms of a pause, and at once when the page loses focus or closes, so a closed tab or browser crash loses only keystrokes still in flight (§7.3). The server seals it under §7.3's rules: after 2 s idle, 5 s open, and on leaving the page.
 - **Undo:** inside a page, Ctrl+Z and redo work through the page's own history, one edit at a time. Back in the outline, one undo step reverses the whole visit to the page (§5.6).
 - **Indicator:** a dim page marker follows the bullet's text (§4.6). The outline never shows page content; zoom into the page to read it.
-- **Layout:** the breadcrumb continues with a page marker: `Home › Projects › ControllerCraft › ≡`. Same centered reading column and theme as the outline.
+- **Layout:** the breadcrumb ends with the page icon after `Home › Projects › ControllerCraft`. Same centered reading column and theme as the outline.
 - **A page belongs to its bullet:** it moves with it, goes to the Trash and comes back with it, and is copied by Duplicate.
 - **Links and tags work on pages:** `[[` links to bullets, `#tags` count for the page's bullet, and pages appear in backlinks (Phase 3).
 - **Rule of thumb for users:** structure goes in bullets, prose goes in pages. Lists inside a page are text, not tree nodes, so they can't be zoomed or moved in the outline.
@@ -412,7 +406,7 @@ Formatting uses Markdown-style markers, typed directly or wrapped around selecte
 ### 5.9 Tags (Phase 2)
 
 - `#tag` anywhere in a bullet or page. Letters, digits, `-`, `_` and `/` are allowed; `/` makes nested tags (`#project/lighthouse`), as in Obsidian.
-- Tags render as colored text (chips, §4.6). Each tag gets a stable color from the `--color-*` tokens, overridable in config.
+- Tags render as colored text (chips, §4.6). Each tag gets a stable color from the `--color-*` tokens, and exposes `data-tag`, so `user.css` can override it. Tags inside code blocks and inline code on pages don't count; Go finds them with a small line scanner, since it no longer parses Markdown.
 - `o` in block selection, or a click, sets the in-place filter to the bullet's tag. Enter never follows a tag; it always edits. Typing `#` offers completion from existing tags.
 - A tag list in the command palette shows every tag with its count.
 
@@ -522,9 +516,9 @@ This section is the only place key bindings are defined. Other sections name com
 
 **Filter input** (§6.2): typing edits the query. Enter or Down moves focus to the outline with the filter still active, on the selected match. Esc clears the filter and leaves the cursor on the selected match. With the filter active, Ctrl+F (or `/` in block selection) returns to the input, and Esc in block selection clears it.
 
-**Page** (§5.7): the text-editing keys for movement, selection, clipboard and wrapping, across the whole page. Enter inserts a newline and continues a list, Tab inserts two spaces, Ctrl+Enter follows the link at the cursor, and Esc saves and returns to the outline, in block selection on the page's bullet. Redo is Ctrl+Y on Linux and Cmd+Shift+Z on macOS, as in the outline.
+**Page** (§5.7): the text-editing keys for movement, selection, clipboard and wrapping, across the whole page. Enter inserts a newline and continues a list, Tab inserts two spaces, Ctrl+Enter follows the link at the cursor, Ctrl+F opens the page's find bar, and Esc saves and returns to the outline, in block selection on the page's bullet. Redo is Ctrl+Y on Linux and Cmd+Shift+Z on macOS, as in the outline.
 
-**Overlays:** typing filters the list; Up/Down or Ctrl+N/Ctrl+P move (inside an overlay Ctrl+P moves up instead of reopening the palette); Enter chooses; Esc closes. In the color picker, `1`–`8` choose a color directly and `0` removes it.
+**Overlays:** typing filters the list; Up/Down move; Enter chooses; Esc closes. In the color picker, `1`–`8` choose a color directly and `0` removes it.
 
 **Trash view** (§4.8): Up/Down move; Enter previews the deletion; `r` restores it; `d` purges it after confirmation; Esc returns to the outline.
 
@@ -542,6 +536,7 @@ This section is the only place key bindings are defined. Other sections name com
 
 - Phase 1: scroll, click to place the cursor, click a glyph to toggle collapse, click a checkbox to complete, click a breadcrumb to zoom, click a bullet glyph with Alt to zoom, overlays clickable.
 - Native text selection works inside the focused bullet. Dragging across bullets selects nothing in Phase 1.
+- **Mouse selection (Phase 2):** dragging from one bullet across others enters block selection, and Shift+click extends a selection.
 - **Drag-to-move (Phase 2):** drag a bullet's glyph to move its subtree, or the whole selection when dragging a selected bullet. A drop indicator shows the new parent and position before you let go, and dragging near the window's edge scrolls. Esc cancels. A drop is one undoable change set, and nothing moves outside the current zoom or into its own subtree. It uses native HTML drag and drop. Every move stays available from the keyboard.
 
 ### 6.6 Palettes, stars and small commands
@@ -579,6 +574,8 @@ Config (both platforms, CLI convention)
 
 Runtime
   $XDG_RUNTIME_DIR/hyphal/server-*.json     # how `hyphal` finds a running server (§9.3)
+
+The cookie signing secret is in the data directory, in a 0600 file (§9.3).
 
 Sync folder (Phase 5, user-chosen, e.g. inside iCloud Drive or Syncthing)
   <sync-folder>/hyphal/<device-id>.log      # §7.6
@@ -674,6 +671,7 @@ CREATE INDEX nodes_in_trash   ON nodes(deleted_at) WHERE deleted_at IS NOT NULL;
 | OPML | Plain text for Workflowy and other outliners (below) | New nodes under a chosen parent (for migrating from Workflowy and other outliners) |
 
 - **Markdown and OPML imports** without `--under` land in one new top-level bullet named after the imported file (`workflowy-export.opml`), so the whole import can be inspected, moved or trashed as a unit. With `--under`, the imported top-level items become children of that node directly.
+- **Drop to import (Phase 2):** dropping an `.opml` or `.md` file on the window imports it under the current zoom as new nodes, as one change set, with a message saying where it landed.
 - JSON export never contains the config file or snapshots.
 - Every export records the app and the export time without breaking its format: a top-level `exported_by` field in JSON, `<head>` elements in OPML (after the `<?xml` declaration), and an HTML comment on the first line of Markdown, which importers skip.
 - Exports are written atomically (temp file, then rename).
@@ -747,7 +745,7 @@ Three layers protect the data, each against a different failure: history against
 CREATE TABLE change_sets (
   id          TEXT PRIMARY KEY,  -- random
   at          TEXT NOT NULL,     -- timestamp (§7.2)
-  source      TEXT NOT NULL,     -- 'ui', 'cli', 'editor', 'import', 'restore', 'agent:<name>'
+  source      TEXT NOT NULL,     -- 'ui', 'cli', 'import', 'restore', 'agent:<name>'
   description TEXT,              -- e.g. 'Moved "Design notes"'
   undo_of     TEXT               -- change set this one undoes (§5.6)
 );
@@ -804,9 +802,9 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 ### 8.6 Locking and tabs
 
 - One server per database, enforced with an exclusive `flock` on a lock file next to the database (`outline.db.lock`). It is not an SQLite lock, so CLI writers are never blocked by it, and the kernel releases it if the server dies. Running `hyphal` while a server holds the lock opens a window on that server (§9.3).
-- **One editing tab.** The first connected tab edits; any other tab opens read-only with a banner. It still follows changes live; typing in it changes nothing and shows a hint.
-- **Takeover.** When the editing tab closes, the oldest read-only tab becomes the editing tab with a message. From Phase 2, a read-only tab's banner also offers "Edit here", which swaps the roles. Nothing changes in a tab's content without that action.
-- The CLI and `hyphal capture` don't take the lock. They are ordinary writers with a 5-second busy timeout; past it they exit with a `busy` error code (§10.2). SQLite serializes the writes.
+- **Any window can edit.** Open as many tabs or windows as you like, for example two zooms side by side. Each has its own zoom, cursor, selection, filter and scroll position; they share one server, one undo stack and one outline, and each shows the others' changes live. Whichever window has focus is the one you're typing in; losing focus seals its typing (§7.3), so two windows never hold unsealed text on one bullet. There is no role to manage and no takeover.
+- **Read-only** applies to the whole server, and only for a real reason: a database with a newer schema, or a failed integrity check.
+- The CLI doesn't take the lock. They are ordinary writers with a 5-second busy timeout; past it they exit with a `busy` error code (§10.2). SQLite serializes the writes.
 
 ## 9. Implementation
 
@@ -815,13 +813,13 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 | Area | Choice | Notes |
 | --- | --- | --- |
 | Language | Go | Simple, fast to compile, one static binary; well suited to agent-driven development |
-| UI | Native web components, HTML, CSS, JavaScript (ES modules) | Light DOM (§4.4). No frontend library or framework without Thor's approval, and no build step: files are embedded with `go:embed` and served as written CodeMirror is the one approved exception (next row). |
+| UI | Native web components, HTML, CSS, JavaScript (ES modules) | Light DOM (§4.4). No frontend library or framework without Thor's approval, and no build step for our code: files are embedded with `go:embed` and served as written. CodeMirror is the one approved exception (below). |
 | Browser features | `contenteditable="plaintext-only"`, CSS Custom Highlight API, `<dialog>`, Popover API, cascade layers, CSS nesting, `light-dark()`, custom properties, Async Clipboard, Selection API, `Intl.Segmenter`, WebSocket | Modern and native only. Anything without support in all three engines needs a fallback that keeps behavior correct |
 | Server | Go `net/http` + `github.com/coder/websocket` | Loopback only. One WebSocket per tab |
 | CLI | Cobra | Shared by quick capture, scripting and agents |
 | Database | `modernc.org/sqlite` | Pure Go; no C toolchain, so cross-builds stay simple. Online backup API verified in P0-05 |
-| Text | `rivo/uniseg` | Grapheme boundaries in server-side text operations; the browser uses `Intl.Segmenter` |
-| Page editor | CodeMirror 6 (MIT) | Live preview and the plain-text settings editor (§5.7). One committed, prebuilt vendor file, embedded like other assets, rebuilt only on upgrade. Parses Markdown and highlights code in the browser, colored by theme tokens through CSS classes. Go never renders Markdown |
+| Text | `rivo/uniseg` | Grapheme boundaries for search matches; the browser uses `Intl.Segmenter` |
+| Page editor | CodeMirror 6 (MIT) | Live preview and the plain-text settings editor (§5.7). Committed, prebuilt vendor files, embedded like other assets, rebuilt only on upgrade, and loaded when the first page opens. Parses Markdown and highlights code in the browser, colored by theme tokens through CSS classes. Go never renders Markdown |
 | Fuzzy matching | A Go fuzzy-finder library such as `sahilm/fuzzy` | Jump and command palettes, on the server |
 | Import / export | `encoding/json`, `encoding/xml`, small list parser | JSON, OPML, Markdown |
 | Config | TOML (`pelletier/go-toml/v2`) | Platform paths per §7.1 |
@@ -872,7 +870,7 @@ The server and CLI never touch the database directly; only `store` does. The bro
 - **Rendering.** Only a window of rows around the viewport is in the DOM. Each state reply carries that window; rows are reused by node ID so the focused element survives updates. The focused bullet is `contenteditable="plaintext-only"` and shows its source text; marker dimming and filter matches on it use the CSS Custom Highlight API with ranges from the server, so editing never touches the text nodes. All other rows render styled spans from the server's parsed runs, built with DOM APIs and never with `innerHTML`.
 - **Slow work** (commits, reloads, snapshots, exports, the `data_version` poll) runs on server goroutines off the request path. Commits and reloads go through one FIFO worker.
 - **Lifecycle.** `hyphal` takes the lock and starts a detached `hyphal serve`, or finds the running one through a `0600` state file in the runtime directory, and then opens a window. The server exits 10 seconds after its last tab closes, which covers reloads. `hyphal serve` runs in the foreground for debugging.
-- **Security.** The server binds only `127.0.0.1`, on a random port. Every request must carry a correct `Host` and, for WebSocket and writes, `Origin`, which blocks DNS rebinding and cross-site WebSockets. A launch opens a URL holding a single-use ticket, exchanged at once for an `HttpOnly`, `SameSite=Strict` session cookie and removed from the address bar, so the process list never holds a usable secret. Pages are served with a Content Security Policy allowing only same-origin resources and no inline scripts. Page Markdown is rendered with raw HTML disabled, and links allow only `http`, `https`, `mailto` and node links.
+- **Security.** The server binds only `127.0.0.1`, on a stable port derived from the database path, moving to the next free port if it's taken, so addresses and the browser's per-site memory survive restarts. The cookie name includes the port, because browsers share cookies across ports. Every request must carry a correct `Host` and, for WebSocket and writes, `Origin`, which blocks DNS rebinding and cross-site WebSockets. A launch opens a URL holding a single-use ticket, exchanged at once for a long-lived `HttpOnly`, `SameSite=Strict` cookie, signed with a secret kept in the data directory, and removed from the address bar, so the process list never holds a usable secret. Pages are served with a Content Security Policy allowing only same-origin resources and no inline scripts. Raw HTML in a page stays literal text (§5.7), and links allow only `http`, `https`, `mailto` and node links.
 - **Reconnect.** The page reconnects automatically after a dropped socket (a restarted server, a sleep/wake), resends unacknowledged typing, and asks for fresh state. If the server has exited, reopening needs `hyphal`.
 
 ### 9.4 Performance targets
@@ -885,6 +883,8 @@ The server and CLI never touch the database directly; only `store` does. The bro
 | Enter or Tab, keypress to frame | < 33 ms p95 | Same; includes the round trip |
 | One action committed (state + history) | < 5 ms on Linux | Same. On macOS, real durability needs `PRAGMA fullfsync`, often 5–20 ms; commits run on the worker, so this never delays a reply |
 | In-place filter update | < 50 ms per keystroke | 100,000 nodes |
+| Keypress to frame, typing on a page | Within a frame at p95 | A 2,000-line page; 20,000 lines measured only |
+| First page opened, including loading the editor | Measured, no hard target | Later pages open at once |
 | CLI change visible in an open tab | < 1 s | Any |
 
 Targets are checked with generated databases: as absolute numbers on fixed benchmark hardware, and in CI only as regressions against a stored baseline, because shared runners are too noisy for absolute thresholds.
@@ -925,7 +925,15 @@ Obsidian's best ideas apply here to nodes rather than files.
 - **Backlinks (Phase 3):** an on-demand floating overlay listing every bullet that links to the current node, each with its breadcrumb.
 - **Saved searches (Phase 3):** "Save search" in the command palette stores the current filter query under a name (`Open bugs` = `#bug is:open`). Saved searches are listed in the jump palette next to starred locations; choosing one opens the filter with that query. They are stored in their own small table and included in JSON export.
 - **Templates (Phase 3):** any subtree tagged `#template` can be instantiated under the current node with one command, from the command palette.
+- **Link previews (Phase 3):** hovering a `[[link]]` shows a small popover with the target's breadcrumb and first lines, through the Popover API. It never takes focus.
 - Graph view and plugins remain non-goals.
+
+**Web extras (Phase 3):**
+
+- **Image attachments:** paste or drop an image onto a page. It is stored in the database, served from the app itself, undoable, included in JSON export, and written as files by Markdown export.
+- **`hyphal://` links:** Copy link to node can give a link that opens Hyphal from another app, through a scheme handler in the `.desktop` file (Linux).
+- **Print and PDF:** a print stylesheet renders a whole page or zoom, so the browser's print dialog gives a clean PDF. Ctrl+P stays the command palette; "Print…" is a palette command.
+- **Theme picker:** a palette command lists themes with a live preview. The choice is per device, and overrides the `theme` setting until changed.
 
 ### 10.2 CLI and agent interface
 
@@ -937,7 +945,8 @@ Every `<node>` argument accepts an ID or a path.
 hyphal                      # start the server if needed and open a window (§9.3)
 hyphal serve [--dev]        # run the server in the foreground
 hyphal add "Fix tooltip positioning" [--under <node>] [--after <node> | --before <node>]
-hyphal capture [--window]   # one-line capture prompt (§4.7)
+hyphal open [<node>]        # open a window at this bullet (§4.1)
+hyphal capture              # Phase 2: small capture window (§4.7)
 hyphal show <node> [--depth N] --json
 hyphal tree [--root <node>] --json
 hyphal search "tooltip #bug is:open" --json
@@ -976,7 +985,7 @@ hyphal paths
 
 ## 11. Staged delivery plan
 
-Phase 1 delivers the core of the Workflowy clone (every Phase 1 *Must* row), usable daily on your own imported outline. Phase 2 completes Workflowy parity, Phase 3 adds the Obsidian-inspired features, and agent integration and sync come last.
+Phase 1 delivers the core of the Workflowy clone (every Phase 1 *Must* row), usable daily on your own imported outline. Phase 2 completes Workflowy parity, Phase 3 adds the Obsidian-inspired features and web extras, and agent integration and sync come last.
 
 Six phases, each with an exit gate:
 
@@ -984,8 +993,8 @@ Six phases, each with an exit gate:
 |---|---|---|
 | **0 · Storage and browser foundations** | Schema, history, JSON round trip; server skeleton, protocol, outline component, key matrix | Export and import are identical; a crash loses at most the unsealed typing; the outline skeleton passes in all three engines |
 | **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages with live preview, formatting; theming, palettes, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side visual review passes |
-| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; drag-to-move, jump palette, history; scheduled export, capture window, Edit here takeover | Every *Must* row of the parity checklist works |
-| **3 · Obsidian-inspired features** | Backlinks, saved searches, templates | Backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs |
+| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; drag-to-move, mouse selection, drop-to-import, jump palette, history; scheduled export, capture window | Every *Must* row of the parity checklist works |
+| **3 · Knowledge and web extras** | Backlinks, link previews, saved searches, templates; image attachments, `hyphal://` links, print and PDF, theme picker | Backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs; a pasted image survives export and restore |
 | **4 · Agent integration** | Batch `apply`, `forget`, agent usage guide, richer queries | An agent completes a scripted multi-step task with `apply` and the usage guide, and one `hyphal revert` undoes it as a unit |
 | **5 · Multi-device sync** | Device IDs, HLC merge, per-device logs, compaction; any-folder sync (iCloud Drive, Syncthing) | Two machines edit offline and converge with nothing lost |
 
@@ -993,7 +1002,7 @@ Each phase starts only after the previous gate passes.
 
 **Separate follow-up project:** an iPhone app that syncs through the same per-device log format. It is out of scope here; this project only guarantees the format is documented and stable enough to build it.
 
-Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph view, plugins.
+Future and exploratory, with no phase: reaching this same web UI from a phone over a private network such as Tailscale, which would reverse the loopback non-goal and need real authentication; direct Wi-Fi sync, collaboration, graph view, plugins.
 
 ## 12. Non-goals, decisions and next steps
 
@@ -1067,8 +1076,8 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 47 | Chords | Text-editing chords limited to the Workflowy core; native text keys stay native on each platform | §6.4 |
 | 48 | Platform | Local web app: one Go binary serving the UI on loopback, replacing the terminal UI | §1, §9 |
 | 49 | Ownership | Go owns every rule and the undo stack; the browser owns DOM, focus, caret and typing in the focused bullet | §9.3 |
-| 50 | Tabs | One server per database; one editing tab; others read-only, and the oldest takes over when the editor closes | §8.6 |
-| 51 | Local security | Loopback only, `Host` and `Origin` checks, single-use launch ticket, `HttpOnly` cookie, strict CSP, Markdown without raw HTML | §9.3 |
+| 50 | Tabs | One server per database; any window can edit, each with its own zoom and cursor; losing focus seals typing (row 60) | §8.6 |
+| 51 | Local security | Loopback only, `Host` and `Origin` checks, single-use launch ticket, `HttpOnly` cookie, strict CSP, raw HTML in pages stays literal | §9.3 |
 | 52 | Zoom addresses | Each zoom has a URL; browser Back and Forward move through zooms | §4.1 |
 | 53 | Page editor | Built-in editor moves to Phase 1, since the browser makes it cheap; superseded by row 59 | §5.7 |
 | 54 | Mouse | Clicks and scrolling move to Phase 1 | §6.5 |
@@ -1076,6 +1085,8 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 57 | Design style | Mycelium colors, Literata and Fraunces, hand-drawn thread icons, ruled threads with a lit focus path, Lit strands collapsed bullets, spore dots for expanded and leaf bullets, optional glowing thread, header and focused-row icons | §4.3, §4.6 |
 | 58 | External editor | Cut the `$EDITOR` round trip: all editing happens in the app. Edit settings uses the built-in plain-text editor | §4.7, §5.7 |
 | 59 | Pages | Obsidian-style live preview on CodeMirror 6 replaces view and edit modes, position sync and split view. goldmark and chroma are gone. Proven by spike P0-W2 | §5.7, §9.1 |
+| 60 | Web review | Stable port per database; any window edits; page address, find bar and separate title field; pages send text on a short delay; CodeMirror loads on demand; no images in Phase 1; `column_width`, `footer`, `[tag_colors]` and the terminal capture prompt cut; 80-character column | §4–§9, §13 |
+| 61 | Web additions | Phase 1: zoom animation, clickable Undo, paste URL as link, rich copy, `hyphal open`. Phase 2: mouse selection, drop-to-import. Phase 3: link previews, attachments, `hyphal://`, print and PDF, theme picker | §4–§11 |
 | 55 | Cut features | Glyph ASCII fallbacks, terminal matrix, kitty, tmux, OSC sequences, Bubble Tea stack, wrap-layout engine, `zoom_transition`, `glyphs`, `background`, `mouse` settings | §4, §6.4, §13 |
 
 ### 12.3 Still open
@@ -1119,11 +1130,8 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | `db` | `<data dir>/outline.db` | Default database | §7.1 |
 | `theme` | `"auto"` | `auto` (Omarchy if present, else follows the system), `light`, `dark`, or a file name in `themes/` | §4.4 |
 | `browser` | `"auto"` | `auto` (app window on a Chromium-family browser, else the default browser), or a command template with `{url}` | §4.7 |
-| `column_width` | `90` | Reading column cap, in characters | §4.6 |
 | `density` | `"comfortable"` | `comfortable` or `compact` | §4.6 |
 | `thread_glow` | `false` | Soft glow on the lit thread path, with a brief pulse when focus moves | §4.3 |
-| `footer` | `true` | Footer key hints | §4.5 |
-| `[tag_colors]` | — | Per-tag color overrides | §5.9 |
 | `[keys.<context>]` | — | Key overrides per context | §6.4 |
 | `trash_days` | `30` | Days before the Trash purges | §8.3 |
 | `snapshots.keep` | `14` | Daily snapshots kept | §8.5 |

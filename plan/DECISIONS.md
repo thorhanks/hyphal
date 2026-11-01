@@ -72,8 +72,8 @@ Context: operators arrive in Phase 2 (§6.2). Decision: the Phase 1 query is spl
 The rest of this decision covered the `$EDITOR` round trip, cut in SPEC §12.2 row 58. What remains:
 - Lines indented more than one level deeper than their predecessor attach as that predecessor's children.
 
-### D-023 · Plain `hyphal capture` ships in Phase 1
-Context: §4.7 puts the capture window in Phase 2; quick capture is Phase 1. Decision: the one-line `hyphal capture` prompt ships in Phase 1 (P1-34); `--window` ships in Phase 2.
+### D-023 · Withdrawn
+The terminal capture prompt was cut (SPEC §12.2 row 60). `hyphal add` ships in Phase 1 and the `hyphal capture` window in Phase 2.
 
 ### D-024 · Root text
 Decision: the root row's `text` is `""`. "Home" is a display label in breadcrumbs, the zoom heading and paths, never stored.
@@ -138,13 +138,16 @@ Context: §4.6, §5.8. Concealed markers must reappear on the focused bullet, di
 Context: §6.4. Web convention and the browser's own behavior beat terminal convention. Decision: Ctrl+A selects all in the bullet on Linux, and Ctrl+E, Ctrl+U and Ctrl+W are unbound (Ctrl+W is reserved anyway). macOS keeps its native Ctrl+A and Ctrl+E. Alt+b and Alt+f are gone. Thor may overrule at review.
 
 ### D-044 · One session per server
-Context: §8.6. Decision: one `core.Outline` and one undo stack per server, shared by all tabs of that database; zoom and scroll window are per tab, while cursor and block selection follow the editing tab.
+Context: §8.6. Decision: one `core.Outline` and one undo stack per server, shared by all windows of that database; zoom, cursor, block selection, filter and row window are per window. Any window may write; there are no roles.
 
 ### D-045 · Bundled fonts and drawn glyphs
 Context: SPEC §4.6, row 57. The agreed look depends on Literata, Fraunces and custom glyphs, and D-039 allows no build step. Decision: self-host both fonts as WOFF2 in `internal/web/assets` with their SIL Open Font License text; the CSP already serves same-origin assets. Fonts are assets rather than frontend libraries, so they carry no code. Glyphs and icons are hand-written SVG strings in `lib/glyphs.js`, with no sprite tool. Threads are one overlay SVG computed from row geometry. `plan/reports/design-mockup.html` is the reference for shapes and values; its code is not carried over.
 
 ### D-046 · CodeMirror as one vendored file
 Context: SPEC §5.7, §9.1, spike P0-W2. CodeMirror needs bundling, and D-039 keeps our own code unbuilt. Decision: CodeMirror packages are bundled once into committed files under `internal/web/assets/vendor/`, which re-export the APIs we use. Our modules import from them as written, so D-039 still holds for our code. esbuild runs only through `make vendor-js`. CodeMirror's base styles are unlayered, so a small token adapter sets the properties they fix (font, line height, column, padding) to `var()` values; everything else is `page.css`. Page undo: CodeMirror's history within a visit; the outline's stack holds one step per visit, whose inverse restores the page and title to their state at opening. Seals still write change sets to history.
+
+### D-047 · Web review of 2026-11-01
+Context: Thor approved the web UI review (SPEC §12.2 rows 60, 61). Decision: the port is the first free one from `40000 + (FNV-1a of the absolute database path mod 10000)`, trying 16 in order. The cookie is `hyphal_<port>`, signed with `<data>/session.key`, valid for a year; a request without it gets a page saying to run `hyphal`. Cards marked "Also (D-047)" carry the smaller additions. `rivo/uniseg` stays: `textfold` uses it for grapheme-safe match ranges.
 
 ## Agent decisions
 

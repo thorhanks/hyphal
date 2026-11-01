@@ -22,7 +22,7 @@ Wave E (web base):         P1-29 theming → P1-30 shell and lifecycle → P1-31
 Wave F (web features):     P1-35 block selection · P1-36 collapse/zoom · P1-37 undo · P1-38 overlays+palette+help
                            P1-39 pickers + o · P1-40 filter UI · P1-41 clipboard/paste · P1-42 CodeMirror bundle
                            P1-43 page screen · P1-45 Trash view
-Wave G (robustness):       P1-46 tabs/read-only/reload · P1-47 durability · P1-48 config · P1-49 first run
+Wave G (robustness):       P1-46 windows/read-only/reload · P1-47 durability · P1-48 config · P1-49 first run
 Wave H (ship + gate):      P1-50 packaging/docs · P1-51 benchmarks · P1-52 reference screens · P1-53 Workflowy import (human)
                            P1-54 parity suite · P1-55 interaction matrix · P1-56 gate
 ```
@@ -298,14 +298,12 @@ The `$EDITOR` round trip was cut (SPEC §12.2 row 58).
 ### P1-19 · Page editing (core)
 Type: impl · Packages: `internal/core` · Depends on: P0-10, P0-11 · Spec: §5.7, §7.3
 
-Deliverables: `PageEditorText(tree, node) string` = `# <bullet text>\n\n<markdown>` (no blank body line when empty: `# Title\n`), used by the page screen; `PageEditorApply(ctx, node, edited) Plan`: if the first line is an H1 (`# …`), its text is the title → `edit_text` if changed (leading-marker conversion applies); the rest (with one leading blank line stripped) is the page; otherwise the whole file is the page and the title is unchanged. Empty page text → no page created / existing page deleted (§5.7). One change set (`source=ui`). `PlanDeletePage(node)`. Built-in editing seals per §7.3's rules applied to the page: 2 s idle, 5 s open, leaving the page mode.
+Deliverables: `PlanSavePage(ctx, node, text) Plan`: empty text creates no page and deletes an existing one (§5.7); one change set (`source=ui`). The title is ordinary bullet typing through `TypeInto`. `PlanDeletePage(node)`. Page typing seals per §7.3: 2 s idle, 5 s open, leaving the page. A page visit groups its seals and title edits into one undo step.
 
 Acceptance criteria:
-- AC1 Title change renames the bullet; body saved → `TestPageEditor_Rename`.
-- AC2 First line not H1 → whole file is the page, title unchanged → `TestPageEditor_NoTitleLine`.
-- AC3 The §5.7 example: deleting the title line of a page whose body starts with `# Intro` renames the bullet to "Intro" → `TestPageEditor_IntroExample`.
-- AC4 Saving empty on a new page creates nothing; clearing an existing page deletes it (one change set) → `TestPageEditor_Empty`.
-- AC5 Built-in edits coalesce into one `edit_page` per seal → `TestPageEditor_Seal`.
+- AC1 Saving empty on a new page creates nothing; clearing an existing page deletes it (one change set) → `TestPage_Empty`.
+- AC2 Edits coalesce into one `edit_page` per seal → `TestPage_Seal`.
+- AC3 One undo reverses a whole visit, including a title edit → `TestPage_VisitUndo`.
 
 ### P1-20 · Markdown import and export (core)
 Type: impl · Packages: `internal/core` · Depends on: P1-02 · Spec: §7.5 · CONTRACTS §10 · D-011
@@ -434,14 +432,8 @@ Acceptance criteria:
 - AC6 `paths` JSON golden → `TestCLI_Paths`.
 - AC7 Every CLI write takes a due snapshot (fake clock via env `HYPHAL_TEST_NOW`, test-only build tag) → `TestCLI_SnapshotOnWrite`.
 
-### P1-34 · `hyphal capture` prompt
-Type: impl · Packages: `internal/cli` · Depends on: P1-26 · Spec: §4.7, §6.3 · D-023
-
-Deliverables: `hyphal capture`: prints `Capture › ` and reads one line in the terminal's own line editing (no raw mode, no terminal UI library). Non-empty line → `PlanAdd` to the Inbox, exit 0, `Added to Inbox` on stderr. Empty line or EOF → exit 0 without adding.
-
-Acceptance criteria:
-- AC1 A line on stdin adds one node to the Inbox with source `cli` → `TestCapture_Adds`.
-- AC2 Empty line and EOF add nothing → `TestCapture_Cancel`.
+### P1-34 · Withdrawn
+The terminal capture prompt was cut (SPEC §12.2 row 60). `hyphal add` covers capture from a shell.
 
 ---
 
@@ -471,10 +463,12 @@ Acceptance criteria:
 ### P1-30 · App shell, lifecycle and state machine
 Type: impl · Packages: `internal/server`, `internal/web`, `internal/cli` · Depends on: P1-29, P1-24, P1-10, P1-05, P1-25 · Spec: §4.5, §4.6, §4.7, §5.1, §6.4 (global keys), §9.3 · D-041
 
+Also (D-047): document title and icon per §4.5; stable port and cookie per §9.3; `hyphal open [<node>]`; clickable Undo in messages; a message clears on the next key or click. AC: `window title`, `open at node`, `message undo click` (e2e); `TestServer_StablePort`, `TestServer_PortFallback`.
+
 Deliverables:
 - `<hyphal-app>` layout (§4.5): header (breadcrumb left, muted; DB name + save indicator right), banner row, scrolling body, footer fixed at the bottom, all in the reading column; ARIA landmarks and a live region footer.
 - Save indicator: nothing / `●` while typing unsealed or commits queued / red `Save failed` label on commit failure or lost connection.
-- Footer priority (§4.5): message → filter query (`/ tooltip · 12 matches`) → hints (if `footer=true`). Message persists until the next keypress, then the previous footer returns.
+- Footer priority (§4.5): message → filter query (`/ tooltip · 12 matches`) → hints. Message persists until the next keypress or click, then the previous footer returns.
 - Banners: priority (failed write > lost connection > read-only > invalid config > restore info); informational ones clear on the next outline change.
 - State machine: `text`, `block`, `filter`, `page`, `overlay`, `trash`. Esc chain per §4.7. Key routing via `lib/keys.js`: overlay → state context → global.
 - Lifecycle: `hyphal` starts or finds the server, gets a ticket, opens a window; exit 10 s after the last tab closes; reconnect with resend; `version` mismatch reloads the page.
@@ -484,7 +478,7 @@ Deliverables:
 Acceptance criteria:
 - AC1 Layout stays correct at 1000×700 and 2400×1200, with the column centered → `shell layout` (e2e, ARIA snapshot + geometry).
 - AC2 Message shows until the next key, then hints return → `message until next key` (e2e).
-- AC3 Footer priority order; `footer=false` hides hints but not messages → `footer priority` (e2e).
+- AC3 Footer priority order → `footer priority` (e2e).
 - AC4 Save indicator states → `save indicator` (e2e with a fake failing store).
 - AC5 Running `hyphal` twice uses one server and a new ticket; the old ticket is dead → `TestLifecycle_Reuse`.
 - AC6 After the last tab closes, the server seals typing, exits after the grace period, and the text is in the DB; a reload inside the grace period keeps it alive → `TestLifecycle_Exit`.
@@ -493,6 +487,8 @@ Acceptance criteria:
 
 ### P1-31 · Outline rendering
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-30 · Spec: §4.1–§4.3, §4.6, §4.9, §5.7 (page marker), §9.3
+
+Also (D-047): `aria-setsize` and `aria-posinset`; `spellcheck` on the focused bullet; `data-tag` on tag spans. AC: `tree aria sizes` (e2e).
 
 Deliverables:
 - `tree`/`treeitem` ARIA. Zoom heading row (not at Home, D-036); rows from `VisibleRows`; spore and Lit strands glyphs as inline SVG, with `data-state` and `data-strands` on the row; hidden count after the text of a collapsed bullet; task checkboxes after the glyph; completed: dim + strikethrough, glyph unchanged; heading-style bullets; density via `data-density`.
@@ -569,6 +565,8 @@ Acceptance criteria:
 ### P1-36 · Collapse, expand, zoom, breadcrumbs
 Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-35, P1-10 · Spec: §4.1, §6.1, §6.5, §6.6 · D-026
 
+Also (D-047): zoom through View Transitions when available, within the motion token, off under reduced motion. AC: `zoom transition` (e2e): typing during it isn't lost, and an engine without the API zooms instantly.
+
 Deliverables: `-`/`=` collapse/expand; `1`–`9`, `0` levels (D-026); palette "Collapse all"; `z` zoom in (cursor to its first child or the heading), `Z` zoom out one level (cursor returns to where it was in that zoom, §6.1), `~` zoom to root; `h` show/hide completed (persisted, message `"Completed bullets hidden"` / `"…shown"`); breadcrumb links with middle truncation; cursor memory per zoom (persisted); zoom in the URL via the History API, with Back and Forward; click on glyphs, checkboxes and breadcrumbs (§6.5).
 
 Acceptance criteria:
@@ -620,7 +618,7 @@ Acceptance criteria:
 ### P1-40 · Filter UI
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-16, P1-35 · Spec: §6.2, §6.4 (filter input), §5.4 (editing under a filter)
 
-Deliverables: Ctrl+F / `/` opens the filter input in the footer row (`/ query · N matches`); outline filters as you type; stale replies dropped; Enter or Down moves focus to the outline on the selected match with the filter active; Esc in input clears and keeps the cursor on the selected match; with the filter active, Ctrl+F or `/` returns to the input; Esc in block selection clears it; sticky nodes per §5.4; page matches show the line beneath and highlight `≡`.
+Deliverables: Ctrl+F / `/` opens the filter input in the footer row (`/ query · N matches`); outline filters as you type; stale replies dropped; Enter or Down moves focus to the outline on the selected match with the filter active; Esc in input clears and keeps the cursor on the selected match; with the filter active, Ctrl+F or `/` returns to the input; Esc in block selection clears it; sticky nodes per §5.4; page matches show the line beneath and highlight the page icon.
 
 Acceptance criteria:
 - AC1 Typing filters; matches highlighted; ancestors shown → `filter typing` (e2e).
@@ -630,6 +628,8 @@ Acceptance criteria:
 
 ### P1-41 · Clipboard and paste
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-17, P1-35, P0-24 · Spec: §5.5
+
+Also (D-047): pasting a URL over selected text makes a link, in bullets and on pages; block copy writes `text/plain` and `text/html` (nested `<ul>`, escaped, built by the server). AC: `paste url as link`, `copy html` (e2e); `TestCopyHTML_Escapes`. Falls back to plain text where the engine refuses.
 
 Deliverables: `paste` event routed to `PlanPaste`/`PlanPasteCut`; block-selection Ctrl+C copies Markdown per P0-24's transport (message `"Copied N bullets"`), Ctrl+X cuts (copy then delete; remember `CutRecord`); clipboard failures → message `"Couldn't copy: <error>"`.
 
@@ -642,7 +642,7 @@ Acceptance criteria:
 ### P1-42 · CodeMirror vendor bundle
 Type: impl · Packages: `internal/web`, `web-vendor/` · Depends on: P0-18 · Spec: §9.1 · D-046
 
-Deliverables: `web-vendor/` with exact-pinned CodeMirror packages, a small entry file and `make vendor-js`, which uses esbuild to write `internal/web/assets/vendor/codemirror.js` and one on-demand file per code language (JavaScript, Python, Go, CSS, HTML). Output is committed, with license text. `make check` needs no Node. Asset checks (raw colors, `innerHTML`) skip `assets/vendor/`.
+Deliverables: `web-vendor/` with exact-pinned CodeMirror packages (including `@codemirror/search`), a small entry file and `make vendor-js`, which uses esbuild to write `internal/web/assets/vendor/codemirror.js` and one on-demand file per code language (JavaScript, Python, Go, CSS, HTML). Output is committed, with license text. `make check` needs no Node. Asset checks (raw colors, `innerHTML`) skip `assets/vendor/`.
 
 Acceptance criteria:
 - AC1 `make vendor-js` reproduces the committed files byte for byte → CI step on changes to `web-vendor/`.
@@ -652,17 +652,21 @@ Acceptance criteria:
 ### P1-43 · Page screen with live preview
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-42, P1-19, P1-29 · Spec: §5.7, §6.4 (page keys), §9.3 · D-046
 
-Deliverables: `<hyphal-page>` around CodeMirror; `lib/livepreview.js` from `internal/pagespike/src/livepreview.js`, cleaned up, including `==highlight==` and `<color>` extensions matching `markup`; `p` opens a page with the §5.7 text including the `# Title` line; breadcrumb `… › ≡`; token adapter and `page.css` (tokens only); keys per §6.4, including arrow handling around collapsed blocks with and without Shift; seals sent as `pagetext`; `hyphal page set` applied to an open page outside its history, per §7.3; a read-only tab gets a read-only editor; palette "Delete page". Delete `internal/pagespike/` and `.github/workflows/pagespike.yml`.
+Deliverables: `<hyphal-page>` around CodeMirror; `lib/livepreview.js` from `internal/pagespike/src/livepreview.js`, cleaned up, including `==highlight==` and `<color>` extensions matching `markup`; `p` opens a page at `/#/<id>/page`, with the title field above it (§5.7), built from the outline's focused-bullet code; load the vendor file with a dynamic `import()` on first open; find bar from `@codemirror/search`, styled with tokens; `spellcheck` on; breadcrumb ending in the page icon; token adapter and `page.css` (tokens only); keys per §6.4, including arrow handling around collapsed blocks with and without Shift; text sent as `pagetext` about 300 ms after a pause and at once on blur and `pagehide`; `hyphal page set` applied to an open page outside its history, per §7.3; a read-only server gets a read-only editor; palette "Delete page". Delete `internal/pagespike/` and `.github/workflows/pagespike.yml`.
 
 Acceptance criteria:
 - AC1 Port the spike's suite: reveal, click accuracy, typing, arrows, block splits, cross-block selection, drag, copy, undo, tables, code, lists, unsafe HTML and links, text integrity, composition, tokens → `page *` (e2e).
-- AC2 `p` on a bullet without a page opens it empty; leaving it empty creates nothing → `page create` (e2e).
-- AC3 Editing the title line renames the bullet; one Ctrl+Z in the outline reverses the whole visit → `page rename undo` (e2e).
+- AC2 `p` on a bullet without a page opens it empty with the cursor in the page; leaving it empty creates nothing → `page create` (e2e).
+- AC3 Editing the title renames the bullet; one Ctrl+Z in the outline reverses the whole visit → `page rename undo` (e2e).
 - AC4 Esc saves and returns to block selection on the page's bullet → `page esc` (e2e).
 - AC5 Ctrl+click and Ctrl+Enter follow a safe link; a plain click only places the cursor → `page links` (e2e).
 - AC6 Typing survives a `hyphal page set` during editing → `TestPage_Concurrent`, `page concurrent` (e2e).
-- AC7 A remote image makes no request and shows its alt text → `page image` (e2e).
+- AC7 `![alt](url)` shows its alt text and makes no request → `page image` (e2e).
 - AC8 Tables and fences nested in lists and quotes render and open correctly → `page nested blocks` (e2e).
+- AC10 Closing the tab right after typing loses nothing beyond in-flight keys → `page close saves` (e2e).
+- AC11 The vendor file isn't requested until a page opens → `editor loads on demand` (e2e).
+- AC12 Ctrl+F finds text not yet drawn; Esc closes the bar, then leaves → `page find` (e2e).
+- AC13 Back and Forward move between outline and page → `page address` (e2e).
 - AC9 Typing on a 2,000-line page stays within a frame at p95; report 20,000 lines → `measure page` (e2e, reports only).
 
 ### P1-44 · Withdrawn
@@ -683,17 +687,20 @@ Acceptance criteria:
 
 ## Wave G — robustness
 
-### P1-46 · Tabs, read-only mode, live reload
+### P1-46 · Windows, read-only mode, live reload
 Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-30, P1-05, P1-23 · Spec: §4.8 (read-only), §7.3, §8.6 · D-044
 
-Deliverables: the server lock at startup (`store.AcquireServerLock`); first tab edits, later tabs read-only with banner `"This outline is open for editing in another tab · read-only"`; oldest read-only tab takes over when the editor closes, with a message; newer schema → banner `"This outline was created by a newer version · read-only"`; integrity failure → P1-47. In read-only, editing keys and commands show hint `"Read-only: <reason>"`; navigation, filter, pages (view), palette and help work; writes are refused server-side. `data_version` poll every 500 ms → Reload job → swap tree, keep each tab's zoom, cursor and selection by ID (fallback to nearest surviving ancestor), keep unsealed typing. Stale/rejected messages per D-033.
+Deliverables: the server lock at startup (`store.AcquireServerLock`); any number of windows, each with its own zoom, cursor, selection, filter and row window; `blur` seals that window's typing; state pushed to every window after each change. Newer schema → banner `"This outline was created by a newer version · read-only"`; integrity failure → P1-47. In read-only, editing keys and commands show hint `"Read-only: <reason>"`; navigation, filter, pages, palette and help work; writes are refused server-side. `data_version` poll every 500 ms → Reload job → swap tree, keep each window's zoom, cursor and selection by ID (fallback to nearest surviving ancestor), keep unsealed typing. Stale/rejected messages per D-033.
 
 Acceptance criteria:
-- AC1 A second tab is read-only with the banner; editing keys show the hint; a forged write is refused → `second tab read-only` (e2e), `TestSession_ReadOnlyRefused`.
-- AC2 The second tab follows live edits and takes over when the first closes → `tab takeover` (e2e).
-- AC3 A CLI `add` appears in an open tab within 1 s → `cli change visible` (e2e).
-- AC4 Reload keeps zoom and cursor; when the cursor's node was deleted elsewhere, the cursor goes to its nearest surviving ancestor → `TestReload_KeepsPosition`.
-- AC5 Unsealed typing on a node changed by the CLI commits after the CLI change; message shown; both change sets in history → `TestReload_ConcurrentTyping`.
+- AC1 Two windows zoomed differently both edit; each sees the other's change; each keeps its own cursor → `two windows` (e2e).
+- AC2 Focusing another window seals typing in the first → `blur seals` (e2e).
+- AC3 One page open in two windows: typing in one appears in the other without entering its history → `page two windows` (e2e).
+- AC4 Undo from either window reverses the latest step and restores the cursor in that window → `TestSession_SharedUndo`.
+- AC5 A CLI `add` appears in an open window within 1 s → `cli change visible` (e2e).
+- AC6 Reload keeps zoom and cursor; when the cursor's node was deleted elsewhere, the cursor goes to its nearest surviving ancestor → `TestReload_KeepsPosition`.
+- AC7 Unsealed typing on a node changed by the CLI commits after the CLI change; message shown; both change sets in history → `TestReload_ConcurrentTyping`.
+- AC8 A newer-schema database shows the banner and refuses a forged write → `TestSession_ReadOnlyRefused`.
 
 ### P1-47 · Durability wiring
 Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-46, P1-09, P1-08, P1-23 · Spec: §7.3, §8.1, §8.5, §8.3 · D-016
@@ -711,10 +718,10 @@ Acceptance criteria:
 ### P1-48 · Config in the UI
 Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-01, P1-38, P1-43 · Spec: §4.7, §13, §6.4 (keymap config)
 
-Deliverables: apply config at startup (theme, column width, density, thread glow, footer, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open it in CodeMirror as plain text, without live preview, and `Reload` on save or when the file changes (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
+Deliverables: apply config at startup (theme, density, thread glow, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open it in CodeMirror as plain text, without live preview, and `Reload` on save or when the file changes (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
 
 Acceptance criteria:
-- AC1 `column_width = 60` narrows the column; `density = "compact"` applies → `config applied` (e2e).
+- AC1 `density = "compact"` applies → `config applied` (e2e).
 - AC2 Invalid value → banner naming the line; valid keys still applied → `TestConfig_InvalidBanner`.
 - AC3 Saving an invalid file keeps the previous config and shows the banner → `TestConfig_ReloadInvalid`.
 - AC4 Key override `toggle_complete = "y"` in `[keys.block]` works; a duplicate keeps the default and shows the banner → `key overrides` (e2e).

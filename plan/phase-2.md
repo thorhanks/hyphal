@@ -1,6 +1,6 @@
 # Phase 2 · Full Workflowy parity
 
-Spec: §11 row 2. Scope: tags, node links, search operators, stars; jump palette, history view; scheduled export, capture window, Edit here takeover; Sort children and Copy link to node (§6.6).
+Spec: §11 row 2. Scope: tags, node links, search operators, stars; jump palette, history view; scheduled export, capture window, drop to import; Sort children and Copy link to node (§6.6).
 
 Exit gate: **every *Must* row of the parity checklist works** (P2-23, automated).
 
@@ -13,7 +13,7 @@ P2-01 tags decision ──▶ P2-04 markup tags ─▶ P2-05 core tags ─▶ P2
 P2-02 links decision ─▶ P2-07 core links ─▶ P2-08 UI links
 P2-03 screens decision ─▶ P2-11 stars · P2-12 jump palette · P2-16 history view
 P2-09 query parser (after P2-04) ─▶ P2-10 operators in filter + CLI
-independent: P2-13 scheduled export · P2-14 capture window · P2-15 takeover · P2-20 sort children
+independent: P2-13 scheduled export · P2-14 capture window · P2-25 drop to import · P2-20 sort children
 P2-24 drag-to-move
 P2-22 parity suite ─▶ P2-23 gate
 ```
@@ -30,7 +30,7 @@ Write `plan/proposals/p2-01-tags.md` answering, each with options, examples, and
 2. Unicode letters allowed? Numeric-only tags (`#2026`)? Trailing `/` (`#a/`)?
 3. Display case vs stored/matched case (match case-insensitively, display as typed? first-seen casing in the tag list?).
 4. A rename command (palette + `hyphal tag rename`), implemented as edit_text ops across bullets and pages in one change set?
-5. Tag colors with only 8 palette colors: hash → which colors (exclude gray? exclude the accent blue?), collision handling, config `[tag_colors]` override format.
+5. Tag colors with only 8 palette colors: hash → which colors (exclude gray? exclude the accent blue?), collision handling, override through `data-tag` in `user.css`.
 
 Stop for the human. Afterwards: write `D-1xx` entries and update P2-04…P2-06, P2-21.
 
@@ -41,7 +41,7 @@ Proposal `plan/proposals/p2-02-links.md`:
 1. Stored form of `[[…]]` that stays readable in a SQLite browser and survives renames (option A: `[[k3j9x2m4q7tb]]` with display text resolved at render; option B: `[[Display text|k3j9x2m4q7tb]]` with display refreshed on render and rewritten lazily; option C: `[[Display text^k3j9x2m4q7tb]]`). Consider: the markup grammar, Plain()/search (§6.2 "links shown as their display text"), CLI output and copy.
 2. Obsidian-style Markdown export when links target nodes, not files (anchor to the page file if the target has a page? heading anchor? plain text with `^id` block reference?).
 3. Links to trashed and purged nodes: rendering (struck/muted?), `o` behavior, export.
-4. Format of Copy link to node (`[[…]]` text for pasting inside the app; `hyphal://`-free).
+4. Format of Copy link to node (`[[…]]` text for pasting inside the app; `hyphal://` links arrive in P3-09).
 5. Retargeting on merge (§5.3 says inbound links are retargeted): rewrite linking bullets' text in the merge change set.
 
 Stop for the human. Afterwards update P2-07, P2-08, and P1-13's `retargetLinks` hook description.
@@ -66,7 +66,7 @@ Acceptance criteria: tables from the P2-01/P2-02 proposals (every example become
 ### P2-05 · Core: tag index and colors
 Type: impl · Packages: `internal/core`, `internal/config` · Depends on: P2-04 · Spec: §5.9, §7.2 (tags not stored)
 
-Deliverables: tags parsed into the tree at load and on every edit (bullet text + page text, page tags count for the bullet); `TagCounts()`; nested tags (`#project/lighthouse` matches `#project`); stable color per tag (P2-01 rule) with `[tag_colors]` overrides; rename planner if P2-01 approved it.
+Deliverables: tags parsed into the tree at load and on every edit (bullet text + page text, page tags count for the bullet); `TagCounts()`; nested tags (`#project/lighthouse` matches `#project`); stable color per tag (P2-01 rule); a small line scanner skips fenced and inline code on pages; rename planner if P2-01 approved it.
 Acceptance criteria:
 - AC1 Tags from text and pages are indexed and update on edit → `TestTagIndex_Updates`.
 - AC2 Colors are stable across runs and honor overrides → `TestTagColors`.
@@ -139,17 +139,14 @@ Acceptance criteria:
 
 ### P2-14 · Capture window
 Type: impl · Packages: `internal/cli`, `internal/server`, `internal/web`, `docs/`, `packaging/` · Spec: §4.7 (capture window)
-Deliverables: `/capture` route: `<hyphal-capture>`, one input; Enter sends `PlanAdd` to the Inbox and closes the window; Esc closes without adding. `hyphal capture --window` starts or finds the server, gets a ticket, and opens `/capture` as a small `--app` window with class `hyphal-capture`; the server's exit grace applies. Hyprland rule snippet (small, floating, centered) and a suggested Super binding checked against Omarchy's defaults in `docs/omarchy.md`. With no Chromium-family browser, and on macOS: a message, then inline capture. A capture page doesn't count as an editing tab.
+Deliverables: `/capture` route: `<hyphal-capture>`, one input; Enter sends `PlanAdd` to the Inbox and closes the window; Esc closes without adding. `hyphal capture` starts or finds the server, gets a ticket, and opens `/capture` as a small `--app` window with class `hyphal-capture`; the server's exit grace applies. Hyprland rule snippet (small, floating, centered) and a suggested Super binding checked against Omarchy's defaults in `docs/omarchy.md`. With no Chromium-family browser, and on macOS: a message, then inline capture. A capture page doesn't count as an editing tab.
 Acceptance criteria:
 - AC1 Typing + Enter adds to the Inbox and closes → `capture page` (e2e).
 - AC2 Capture works while another tab is editing → `capture alongside editor` (e2e).
-- AC3 The command has the right argv (fake exec); the fallback runs inline capture with a message → `TestCaptureWindow_Command`, `TestCaptureWindow_Fallback`.
+- AC3 The command has the right argv (fake exec); without a Chromium-family browser it opens a normal tab → `TestCaptureWindow_Command`, `TestCaptureWindow_Fallback`.
 
-### P2-15 · Edit here takeover
-Type: impl · Packages: `internal/server`, `internal/web` · Spec: §8.6 (takeover)
-Deliverables: a read-only tab's banner gets an `Edit here` action: seals the editing tab's typing, swaps roles, and shows a message in both. Nothing changes without the click or keypress.
-Acceptance criteria:
-- AC1 `Edit here` makes this tab editable and the other read-only, with no lost typing → `edit here` (e2e).
+### P2-15 · Withdrawn
+Any window can edit, so there is no takeover (SPEC §12.2 row 60).
 
 ### P2-16 · History view
 Type: impl · Packages: `internal/server`, `internal/web`, `internal/core` · Depends on: P2-03, P1-07 · Spec: §8.2 (History view), §5.6
@@ -179,6 +176,15 @@ Acceptance criteria:
 - AC2 Dragging a selected bullet moves the whole selection in order → `drag selection` (e2e).
 - AC3 Esc cancels; a drop into its own subtree changes nothing → `drag cancel and invalid` (e2e).
 - AC4 Dragging past the edge of the row window scrolls and can drop there at 100,000 nodes → `drag autoscroll` (e2e).
+
+Also (D-047): dragging across bullets enters block selection; Shift+click extends it. AC: `drag selects`, `shift click extends` (e2e).
+
+### P2-25 · Drop to import
+Type: impl · Packages: `internal/server`, `internal/web` · Spec: §7.5 (drop to import)
+Deliverables: dropping an `.opml` or `.md` file on the window imports it under the current zoom as new nodes, as one undoable change set with source `import`; a message says where it landed. Other files show a message and change nothing.
+Acceptance criteria:
+- AC1 A dropped OPML file imports under the zoom, and one Ctrl+Z removes it → `drop import` (e2e).
+- AC2 A dropped image or JSON file changes nothing → `drop refused` (e2e).
 
 ### P2-22 · Parity suite for Phase 2 rows
 Type: impl · Packages: `e2e/` · Spec: §3 (Phase 2 rows)

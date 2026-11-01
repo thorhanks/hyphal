@@ -196,7 +196,7 @@ Human-readable output is not a contract (but has goldens).
 | Recovery files | `<data>/recovery/<dbname>-<YYYYMMDDTHHMMSSZ>.md` (dialect with `^id`s) | 0600 |
 | Server state | `${XDG_RUNTIME_DIR}/hyphal/` else `<data>/tmp/`, file `server-<sha256 of db path, 16 hex>.json`: `{"port","secret","pid","version"}` (D-041) | 0600 |
 | Themes | `${XDG_CONFIG_HOME:-~/.config}/hyphal/themes/*.css`, `user.css` | user's |
-| Editor temp | `${XDG_RUNTIME_DIR}/hyphal/` else `<data>/tmp/` (dir 0700), file `edit-<random>.md` | 0600 |
+| Cookie secret | `<data>/session.key` | 0600 |
 | Exports | `<data>/exports/` default for scheduled export | 0600 files |
 | Config | `${XDG_CONFIG_HOME:-~/.config}/hyphal/config.toml` (both OSes) | user's |
 
@@ -242,16 +242,18 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 {"t":"query","seq":9,"kind":"palette","text":"col"}
 {"t":"filter","seq":10,"text":"tooltip"}
 {"t":"pagetext","seq":11,"id":"<id>","text":"…","final":false}
+{"t":"blur"}
 ```
 
 - `action.seq` and `text.seq` are separate counters. Every `action` gets exactly one `state` reply echoing its `seq`. `text` gets no reply of its own; the next `state` carries `textAck`.
 - Action names are `keymap` command IDs, plus internal ones (`set_cursor`, `block_extend`, …) listed in `internal/server/actions.go`. Unknown names return an error message and change nothing.
-- A read-only tab's writes are refused on the server, whatever the client sends.
+- On a read-only server, writes are refused whatever the client sends.
+- `blur` from a window seals its typing. Every window gets a `state` after each change.
 
 ### 12.2 Server → client
 
 ```json
-{"t":"welcome","version":"…","keymap":[…],"config":{"density":"comfortable","footer":true,"columnWidth":90,"threadGlow":false},"readOnly":false}
+{"t":"welcome","version":"…","keymap":[…],"config":{"density":"comfortable","threadGlow":false},"readOnly":false}
 {"t":"state","seq":7,"textAck":12,"total":10010,"start":380,"rows":[Row],
  "cursor":"<id>","off":5,"end":5,"block":["<id>"],"anchor":"<id>",
  "zoom":"<id>","crumbs":[{"id","text"}],"filter":"…","filterCount":12,
@@ -291,6 +293,7 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 | `/theme.css`, `/user.css` | Active theme and user overrides; empty when absent |
 | `/capture` | Capture page (Phase 2) |
 | `/ws` | The WebSocket |
+| `/assets/vendor/…` | CodeMirror files, requested only when a page opens |
 | `/internal/ticket` | `POST` from `hyphal` with the state file's secret; returns a new ticket |
 | `/keyprobe` | Key matrix page, `--dev` only |
 

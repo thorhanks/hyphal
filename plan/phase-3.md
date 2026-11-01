@@ -1,15 +1,16 @@
-# Phase 3 · Obsidian-inspired features
+# Phase 3 · Knowledge and web extras
 
-Spec: §11 row 3, §10.1. Scope: backlinks, saved searches, templates.
+Spec: §11 row 3, §10.1. Scope: backlinks, link previews, saved searches, templates; image attachments, `hyphal://` links, print and PDF, theme picker.
 
-Exit gate (automated, P3-06): **backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs.**
+Exit gate (automated, P3-06): **backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs; a pasted image survives export and restore.**
 
 ## Dependencies
 
 ```text
 P3-01 templates decision ─▶ P3-05 templates
 P3-02 backlinks core ─▶ P3-03 backlinks overlay
-P3-04 saved searches (schema v2)
+P3-04 saved searches (schema v2) ─▶ P3-08 attachments
+independent: P3-07 link previews · P3-09 `hyphal://` · P3-10 print · P3-11 theme picker
 P3-06 gate
 ```
 
@@ -56,6 +57,40 @@ Type: impl · Packages: `internal/core`, `internal/server`, `internal/web` · De
 Deliverables per P3-01. Minimum ACs:
 - AC1 Instantiating a template creates new IDs, copies pages, one change set → `TestTemplate_Instantiate`.
 - AC2 Variables expand per P3-01 → `TestTemplate_Variables`.
+
+### P3-07 · Link previews
+Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P2-07 · Spec: §10.1
+Deliverables: hovering a `[[link]]`, in a bullet or on a page, shows a Popover API popup with the target's breadcrumb and first lines. It never takes focus.
+Acceptance criteria:
+- AC1 Hover shows the current target text; a trashed target says so → `link preview` (e2e).
+- AC2 Focus and caret don't move → `link preview focus` (e2e).
+
+### P3-08 · Image attachments
+Type: decision, then impl · Packages: `internal/store`, `internal/core`, `internal/server`, `internal/web` · Depends on: P3-04 · Spec: §10.1 (web extras), §5.7
+Write `plan/proposals/p3-08-attachments.md` first: schema (content-addressed table), size limit, allowed image types, purge rules, JSON and Markdown export forms, history. Stop for the human. Then build: paste or drop onto a page stores the image and inserts `![alt](/a/<hash>)`; images render from that route only; SVG is never served inline.
+Acceptance criteria:
+- AC1 A pasted image renders, and survives JSON round trip and Markdown export → `TestAttachments_RoundTrip`, `page paste image` (e2e).
+- AC2 Remote image URLs still make no request → `page image` (e2e).
+
+### P3-09 · `hyphal://` links
+Type: impl · Packages: `internal/cli`, `internal/core`, `packaging/` · Depends on: P2-07 · Spec: §10.1 (web extras)
+Deliverables: `x-scheme-handler/hyphal` in the `.desktop` file; `hyphal open hyphal://…` validates a node ID and opens it, never acting on anything else in the URL; Copy link to node offers this form.
+Acceptance criteria:
+- AC1 A malformed or hostile URL does nothing but print an error → `TestOpen_SchemeValidation`.
+- AC2 `desktop-file-validate` still passes → workflow step.
+
+### P3-10 · Print and PDF
+Type: impl · Packages: `internal/web`, `internal/server` · Spec: §10.1 (web extras)
+Deliverables: palette "Print…" renders the whole zoom or page outside the row window, with a print stylesheet using tokens and no chrome, then calls `window.print()`.
+Acceptance criteria:
+- AC1 Every bullet of a zoom beyond the row window is in the print DOM, and threads and chrome follow the print stylesheet → `print outline` (e2e).
+
+### P3-11 · Theme picker
+Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-29 · Spec: §10.1 (web extras), §4.4
+Deliverables: palette "Theme…" lists bundled and user themes, previews on arrow, applies on Enter, reverts on Esc. The choice lives in `ui_state` and overrides `theme`.
+Acceptance criteria:
+- AC1 Preview and revert leave no trace → `theme preview` (e2e).
+- AC2 The choice persists across launches → `theme picker persists` (e2e).
 
 ### P3-06 · Phase 3 gate
 Type: gate · Depends on: P3-02…P3-05
