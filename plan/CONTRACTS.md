@@ -241,6 +241,7 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 {"t":"window","start":400,"count":200}
 {"t":"query","seq":9,"kind":"palette","text":"col"}
 {"t":"filter","seq":10,"text":"tooltip"}
+{"t":"pagetext","seq":11,"id":"<id>","text":"…","final":false}
 ```
 
 - `action.seq` and `text.seq` are separate counters. Every `action` gets exactly one `state` reply echoing its `seq`. `text` gets no reply of its own; the next `state` carries `textAck`.
@@ -257,7 +258,7 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
  "message":"…","banners":[{"kind","text","action"?}],"saving":false,"readOnly":false}
 {"t":"result","seq":9,"kind":"palette","items":[…]}
 {"t":"clipboard","text":"…"}
-{"t":"page","id":"<id>","html":"…","markdown":"…","version":3}
+{"t":"page","id":"<id>","text":"…","version":3}
 {"t":"theme","href":"/theme.css?v=<hash>"}
 {"t":"open","url":"https://…"}
 {"t":"error","code":"…","message":"…"}

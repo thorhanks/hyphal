@@ -106,7 +106,7 @@ Run in `make check`, with no Node needed:
 - `TestWebAssets_ImportsRelative`: every `import` is relative and resolves to an embedded file; no bare specifiers.
 - `TestWebAssets_TokensOnly`: outside `tokens.css` and `themes/*.css`, CSS has no color literals, no `font-family` values, and no raw `px` sizes except `0` and `1px`.
 - `TestWebAssets_TokensUsed`: every token in `tokens.css` is used somewhere, and every `var(--x)` is defined.
-- `TestWebAssets_NoInnerHTML`: `innerHTML` appears only in the allowlisted page view module, which receives sanitized server HTML.
+- `TestWebAssets_NoInnerHTML`: no `innerHTML` in `internal/web/assets/` outside `vendor/`.
 - `TestThemes_Contrast`: bundled `light` and `dark` meet WCAG AA for `--text` and `--muted` on `--bg`.
 
 ## 7. Crash injection (§9.5, Phase 0 gate)

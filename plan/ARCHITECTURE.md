@@ -23,7 +23,6 @@ internal/
                # Markdown/OPML import/export, committer
   cli/         # Cobra commands, JSON envelope, exit codes, `capture` prompt
   server/      # HTTP, auth, WebSocket, one session per database, protocol (CONTRACTS §12), lifecycle
-    pageview/  # Markdown page → sanitized HTML (goldmark + chroma) with source positions
     theme/     # finds the active theme, maps Omarchy colors.toml to tokens, watches files
     servertest/ # session test harness (TESTING §4)
   web/         # go:embed of assets/; asset checks (TESTING §6)
@@ -78,8 +77,6 @@ Pin exact versions in `go.mod`. Adding any other Go module requires asking (READ
 | `github.com/rivo/uniseg` | Graphemes and word boundaries on the server |
 | `golang.org/x/text` | Case folding, normalization |
 | `golang.org/x/sys/unix` | flock |
-| `github.com/yuin/goldmark` | Page Markdown to HTML with source positions |
-| `github.com/alecthomas/chroma/v2` | Code block highlighting as CSS classes |
 | `github.com/sahilm/fuzzy` | Palettes (re-evaluated in P0-20) |
 | `github.com/pelletier/go-toml/v2` | Config (needs positions for error lines; D-012) |
 | `pgregory.net/rapid` | Property tests |
@@ -320,7 +317,7 @@ func Parse(r io.Reader, o ParseOptions) ([]*Item, error)
 func Write(w io.Writer, items []*Item, o WriteOptions) error // o.IDs, o.Header (export comment)
 
 package keymap
-type Context string // global, text, block, filter, page_view, page_edit, overlay, trash
+type Context string // global, text, block, filter, page, overlay, trash
 type CommandID string
 type Binding struct { Context Context; Key string; Command CommandID }
 func Defaults() Table
@@ -373,7 +370,7 @@ These apply to everything in `internal/web/assets/`.
 - **Light DOM:** components render children directly (§4.4). No shadow roots, no `<slot>`.
 - **Naming:** elements are prefixed `hyphal-` only in tag names, which are UI code and may carry the app name (CONTRACTS §1). One file per element in `components/`, e.g. `outline-view.js` defines `<hyphal-outline>`.
 - **Components are thin.** They render what the server sends and dispatch intent. Anything that is a rule of §5 belongs in `core`. Allowed local logic: focus, caret and selection handling, key dispatch from the keymap JSON, the key queue (§9.3), the row window, overlay filtering when the list is already on the client.
-- **Data never becomes HTML.** Bullet text and runs are placed with `textContent` and `createElement`. The only `innerHTML` is the page view module, for server-sanitized HTML, under a test allowlist (TESTING §6).
+- **Data never becomes HTML.** Bullet text and runs are placed with `textContent` and `createElement`. The same holds on pages: live preview builds tables and widgets with DOM APIs. No `innerHTML` anywhere outside `assets/vendor/` (TESTING §6).
 - **CSS:** `@layer reset, tokens, components, theme, user;` declared first in `base.css`. Component CSS uses nesting and tokens only (TESTING §6). State is expressed as attributes (`[data-state="block"]`, `[aria-selected="true"]`), which themes can target and which form part of the theming contract in `docs/theming.md`.
 - **JS style:** modern syntax, `const` by default, JSDoc types on exported functions. No global state except the one app controller; `window.__hyphal` exists only in `--dev`.
 - **Feature checks:** a feature missing in one engine gets a small fallback that keeps behavior correct, never a polyfill library. Record it in a comment naming the engine.

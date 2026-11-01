@@ -49,8 +49,6 @@ var approvedModules = []string{
 	"github.com/rivo/uniseg",
 	"golang.org/x/text",
 	"golang.org/x/sys",
-	"github.com/yuin/goldmark",
-	"github.com/alecthomas/chroma/v2",
 	"github.com/sahilm/fuzzy",
 	"github.com/pelletier/go-toml/v2",
 	"pgregory.net/rapid",

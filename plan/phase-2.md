@@ -1,6 +1,6 @@
 # Phase 2 · Full Workflowy parity
 
-Spec: §11 row 2. Scope: tags, node links, search operators, stars; jump palette, history view, page mode sync and split view; scheduled export, capture window, Edit here takeover; Sort children and Copy link to node (§6.6).
+Spec: §11 row 2. Scope: tags, node links, search operators, stars; jump palette, history view; scheduled export, capture window, Edit here takeover; Sort children and Copy link to node (§6.6).
 
 Exit gate: **every *Must* row of the parity checklist works** (P2-23, automated).
 
@@ -13,7 +13,6 @@ P2-01 tags decision ──▶ P2-04 markup tags ─▶ P2-05 core tags ─▶ P2
 P2-02 links decision ─▶ P2-07 core links ─▶ P2-08 UI links
 P2-03 screens decision ─▶ P2-11 stars · P2-12 jump palette · P2-16 history view
 P2-09 query parser (after P2-04) ─▶ P2-10 operators in filter + CLI
-P2-19 mode switching + split view
 independent: P2-13 scheduled export · P2-14 capture window · P2-15 takeover · P2-20 sort children
 P2-24 drag-to-move
 P2-22 parity suite ─▶ P2-23 gate
@@ -91,12 +90,12 @@ Acceptance criteria: per P2-02 outcomes, at minimum:
 - AC4 Markdown export writes the agreed Obsidian form → `TestExportMarkdown_Links` (golden).
 
 ### P2-08 · UI: link insertion and following
-Type: impl · Packages: `internal/server`, `internal/server/pageview`, `internal/web` · Depends on: P2-07, P2-12 · Spec: §10.1, §5.7 (page view links), §6.4 (`o`)
-Deliverables: typing `[[` opens the jump-palette-style picker; choosing inserts the stored link form; `o` and click follow (zoom to target's parent with target selected, like the jump palette); page view Tab cycles node links too and Enter zooms to the target; palette "Copy link to node".
+Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P2-07, P2-12 · Spec: §10.1, §5.7 (links), §6.4 (`o`)
+Deliverables: typing `[[` opens the jump-palette-style picker; choosing inserts the stored link form; `o` and click follow (zoom to target's parent with target selected, like the jump palette); on a page, `[[links]]` get live preview, and Ctrl+click or Ctrl+Enter zooms to the target; palette "Copy link to node".
 Acceptance criteria:
 - AC1 `[[` + query + Enter inserts a link that renders as the target's text → `link insert` (e2e).
 - AC2 `o` on a link zooms to the target → `link follow` (e2e).
-- AC3 Page view Enter on a node link zooms there → `page node link` (e2e).
+- AC3 Ctrl+Enter on a node link on a page zooms there → `page node link` (e2e).
 
 ### P2-09 · Core: search query parser and operators
 Type: impl · Packages: `internal/core` · Depends on: P2-04 · Spec: §6.2 (operators)
@@ -159,13 +158,8 @@ Acceptance criteria: per P2-03 mockups, at minimum:
 - AC1 A node's past texts are listed newest first; restoring one creates a change set → `history node versions` (e2e).
 - AC2 Reverting a CLI change set from the list leaves later UI changes intact → `history revert` (e2e).
 
-### P2-19 · Mode switching with position sync; split view
-Type: impl · Packages: `internal/web`, `internal/server/pageview` · Spec: §5.7 (switching, split view), §13 (`split_view_min_width`)
-Deliverables: switching view↔edit keeps the same block on screen using pageview source ranges; `s` toggles split view (source left, rendered right, live update while typing). Split view uses the full window width with two equal panes, each capped at `column_width`; record this as a D-entry; `split_view_min_width` opens split by default at or above that width.
-Acceptance criteria:
-- AC1 Scrolled to the 5th heading in view mode, `e` puts the cursor on that heading's source line → `page position sync` (e2e).
-- AC2 Split view updates the rendered side as you type → `split view live` (e2e).
-- AC3 `split_view_min_width = 1600` in a 2000 px window opens split → `split view default` (e2e).
+### P2-19 · Withdrawn
+Live preview replaced view and edit modes (SPEC §12.2 row 59).
 
 ### P2-20 · Sort children
 Type: impl · Packages: `internal/core`, `internal/server` · Spec: §6.6

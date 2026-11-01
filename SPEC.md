@@ -15,7 +15,7 @@ We are building a local-first infinite outliner, inspired by Workflowy, for Linu
 ## 2. Product principles
 
 1. **One tree, no mandatory pages.** Any node can have children and can be zoomed into.
-2. **Thought-first editing.** Capturing and rearranging bullets needs no mode switch. Commands that need single keys use a lightweight block-selection state, not Vim modes. Block selection and page view/edit are modes in the strict sense; they are kept few and shallow: Esc always backs out one level, and Enter always returns to typing.
+2. **Thought-first editing.** Capturing and rearranging bullets needs no mode switch. Commands that need single keys use a lightweight block-selection state, not Vim modes. Block selection is a mode in the strict sense; modes are kept few and shallow: Esc always backs out one level, and Enter always returns to typing.
 3. **Your data is never locked in.** One SQLite file with a plain, documented schema, readable by standard tools. Export to Markdown, JSON or OPML at any time; a JSON export restores the whole outline, and its history too when exported with it.
 4. **Nothing is lost silently.** Every change is recorded in history, deletes go to the Trash, and snapshots protect against a damaged file.
 5. **Every change is attributable and reversible.** History records whether a change came from the UI, the CLI or an agent, and any change set can be reverted.
@@ -205,7 +205,7 @@ The identity lives in shapes, so it survives any theme: threads, spore bullets a
   | `--text` | Bullet and page text |
   | `--bg` | Page background |
   | `--muted` | Breadcrumbs, footer, page marker, completed text |
-  | `--accent` | Focused glyph, overlay borders, focus rings, page headings in edit mode |
+  | `--accent` | Focused glyph, overlay borders, focus rings, links on pages |
   | `--selection`, `--selection-text` | Block selection, palette highlight |
   | `--match` | Filter and search matches |
   | `--highlight` | `==highlight==` text |
@@ -234,7 +234,7 @@ Omarchy is *omakase*: one beautiful, opinionated default, keyboard first, themed
 The full keymap is in §6.4. The conventions it follows:
 
 - `?` in block selection, or F1 anywhere, shows every command with its key.
-- Esc backs out one level and never zooms out: overlay → where you were; page edit → page view → outline; text editing → block selection → clear filter → nothing (a hint). Zooming out is always explicit.
+- Esc backs out one level and never zooms out: overlay → where you were; page → outline; text editing → block selection → clear filter → nothing (a hint). Zooming out is always explicit.
 - There are no side panes. Backlinks is a floating overlay like the palettes; Esc closes it.
 - Closing the window or tab quits. Typing already reached the server, so there is never anything to save (§7.3).
 
@@ -246,7 +246,7 @@ The full keymap is in §6.4. The conventions it follows:
 
 ### 4.8 Phase 1 screens
 
-Phase 1 needs these screens besides the outline and the page view. Later-phase screens are listed in §12.3.
+Phase 1 needs these screens besides the outline and the page. Later-phase screens are listed in §12.3.
 
 - **Trash view** (full page, §8.3): one row per deletion, newest first: the deleted bullet's text, its former breadcrumb, the descendant count and the age. Enter previews the subtree read-only; `r` restores; `d` purges that deletion after a confirmation (purging is final, so purge and Empty Trash are the only actions in the app that ask for confirmation); Esc returns to the outline.
 - **Help overlay** (F1, `?`): every command in the current context with its key, generated from the keymap (§6.4), filterable by typing.
@@ -351,7 +351,7 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 
 ### 5.6 Undo and redo
 
-- **Undo is per session.** The server keeps an undo stack in memory for the editing tab. Each step is one change set you started from the UI, including page saves made from it. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the UI clears the redo steps. The server exiting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
+- **Undo is per session.** The server keeps an undo stack in memory for the editing tab. Each step is one change set you started from the UI; all the saves from one visit to a page count as one step. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the UI clears the redo steps. The server exiting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
 - Changes from the CLI or an agent are never on the stack, so Ctrl+Z never undoes something you didn't do; they are reverted with `hyphal revert`.
 - If a later change from another source touched the same fields, undo follows the revert rule: those fields are skipped and reported (§8.2).
 - Typing coalesces into one step per node; the step closes when the typing operation seals (§7.3). Ctrl+Z first seals any open typing, so the typing just done is the step undone.
@@ -360,23 +360,22 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 ### 5.7 Pages
 
 - **Every bullet stays one line.** Long-form writing lives on an optional **page** attached to the bullet: a full Markdown document with headings, lists, code blocks, quotes and tables, as long as you like.
-- **Page zoom:** `p` in block selection opens the bullet's page in view mode; on a bullet without one, it opens an empty page in edit mode. A page saved empty is not created; clearing an existing page's text deletes the page, as one undoable change. Esc from view mode returns to the outline in block selection on the page's bullet. Normal zoom (`z`) still shows only the bullet's children.
-- **Title:** the bullet's text is the page title. It is not stored in `pages.markdown`; view mode renders it as the page heading, with inline markup.
-  - In edit mode, the title appears as a first line `# Title`. On save, the first line is the title if it is an H1 (`# …`): changing it renames the bullet. If the first line is not an H1, the bullet's text is unchanged and the whole file is the page. (So deleting the title line of a page whose body starts with `# Intro` renames the bullet to "Intro"; undo reverses it.)
+- **Page zoom:** `p` in block selection opens the bullet's page, on a bullet without one an empty page. A page left empty is not created; clearing an existing page's text deletes the page, as one undoable change. Esc saves and returns to the outline in block selection on the page's bullet. Normal zoom (`z`) still shows only the bullet's children.
+- **Live preview, one mode.** A page is always rendered and always editable, as in Obsidian. There is no separate view or edit mode.
+  - **Rendered everywhere else.** Headings, emphasis, strikethrough, `==highlight==`, inline code, links, lists, task boxes, quotes, rules, tables and syntax-highlighted code blocks show as formatted text, with their markers hidden.
+  - **Source where the cursor is.** Every line touched by the cursor or selection shows its Markdown, with markers dimmed, and is freely editable. A table or fenced code block opens whole when the cursor enters it.
+  - **One document.** Arrow keys, clicking, selection, copy, delete and undo all work across blocks. Clicking rendered text lands on the same word in the source. Copy gives raw Markdown. Nothing reveals or hides during a mouse drag, so text never moves under the pointer.
+  - **Task boxes** toggle on click, as an undoable edit, without moving the cursor.
+  - **Links:** Ctrl+click or Ctrl+Enter follows the link; a plain click places the cursor. `[[links]]` zoom to their target (Phase 2).
+  - **Images** show only from `data:` URLs or the app itself. Pages never reach the network (§2.6), so a remote image shows its alt text.
+  - **Raw HTML stays literal text** and never runs. Only the link schemes in §9.3 are followable.
+  - Editor: CodeMirror 6, the one approved frontend library (§9.1). The outline does not use it.
+- **Title:** the bullet's text is the page title. It is not stored in `pages.markdown`. It appears as a first line `# Title`, rendered as the page heading like any other. On save, the first line is the title if it is an H1 (`# …`): changing it renames the bullet. If the first line is not an H1, the bullet's text is unchanged and the whole text is the page. (So deleting the title line of a page whose body starts with `# Intro` renames the bullet to "Intro"; undo reverses it.)
   - **Delete page** (command palette) removes the page from a bullet, as one undoable change.
+- **Saving** follows §7.3's sealing rules: after 2 s idle, 5 s open, and on leaving the page.
+- **Undo:** inside a page, Ctrl+Z and redo work through the page's own history, one edit at a time. Back in the outline, one undo step reverses the whole visit to the page (§5.6).
 - **Indicator:** a dim page marker follows the bullet's text (§4.6). The outline never shows page content; zoom into the page to read it.
-- **Two modes, no live preview.** Editing inside rendered output is the hardest and buggiest part of a Markdown editor, so pages separate reading from writing:
-  - **View mode** renders the Markdown read-only: headings, lists, quotes, tables, and code blocks syntax-highlighted with theme tokens. It scrolls, and Tab moves between links; Enter on the focused `[[link]]` zooms to its target.
-  - **Edit mode** is a plain multi-line editor (`contenteditable="plaintext-only"`) showing the Markdown exactly as typed. Syntax highlighting through the CSS Custom Highlight API keeps it pleasant without concealment or touching the text: headings bold in the accent color, markers dimmed, code blocks tinted, links underlined.
-- **Switching:** `e` in view mode, or Enter with no link focused, enters edit mode; Esc in edit mode returns to view mode. The parser's source ranges keep your place: switching scrolls to the same block and puts the cursor on it.
-- **Split view** (wide windows): `s` in view mode (Phase 2) shows source and rendered output side by side, updating as you type. Off by default; a setting can make it the default above a chosen width.
-- **Common elements of both modes:**
-  - The breadcrumb continues with a page marker and the mode: `Home › Projects › ControllerCraft › ≡ view`.
-  - Same centered reading column and theme as the outline.
-- **Editing, staged:**
-  - **Phase 1:** view mode and the built-in edit mode. `e` opens the built-in editor. Each edit saves as one undoable change set.
-  - **Phase 2:** mode switching with position sync, and split view.
-  - Live preview is not planned. Concealed markers remain only on single-line bullets in the outline (§5.8), where they are simple.
+- **Layout:** the breadcrumb continues with a page marker: `Home › Projects › ControllerCraft › ≡`. Same centered reading column and theme as the outline.
 - **A page belongs to its bullet:** it moves with it, goes to the Trash and comes back with it, and is copied by Duplicate.
 - **Links and tags work on pages:** `[[` links to bullets, `#tags` count for the page's bullet, and pages appear in backlinks (Phase 3).
 - **Rule of thumb for users:** structure goes in bullets, prose goes in pages. Lists inside a page are text, not tree nodes, so they can't be zoomed or moved in the outline.
@@ -450,7 +449,7 @@ This section is the only place key bindings are defined. Other sections name com
 
 **`Ctrl` in this spec means `Mod`:** Ctrl on Linux, Cmd on macOS. Native text keys keep each platform's own behavior (below).
 
-**Contexts:** global, text editing, block selection, filter input, page view, page edit, overlays (palettes, pickers, help, backlinks) and the Trash view. The Esc chain moves between them (§4.7).
+**Contexts:** global, text editing, block selection, filter input, page, overlays (palettes, pickers, help, backlinks) and the Trash view. The Esc chain moves between them (§4.7).
 
 **Two layers.** Block selection is the complete layer for everyday bullet commands: each has a single key there. Chords are shortcuts for the most frequent commands. No default binding uses a key the browser won't give up (below).
 
@@ -523,20 +522,7 @@ This section is the only place key bindings are defined. Other sections name com
 
 **Filter input** (§6.2): typing edits the query. Enter or Down moves focus to the outline with the filter still active, on the selected match. Esc clears the filter and leaves the cursor on the selected match. With the filter active, Ctrl+F (or `/` in block selection) returns to the input, and Esc in block selection clears it.
 
-**Page view** (§5.7)
-
-| Key | Command |
-| --- | --- |
-| Up / Down | Scroll by line |
-| Space, Page Down / Page Up | Scroll by screen |
-| Home / End | Top / bottom |
-| Tab / Shift+Tab | Focus next / previous link |
-| Enter | Follow the focused link; with no link focused, edit |
-| `e` | Edit in the built-in editor |
-| `s` (Phase 2) | Toggle split view |
-| Esc | Back to the outline, in block selection on the page's bullet |
-
-**Page edit:** the text-editing keys for movement, selection, clipboard and wrapping. Enter inserts a newline, Tab inserts two spaces, and Esc returns to view mode.
+**Page** (§5.7): the text-editing keys for movement, selection, clipboard and wrapping, across the whole page. Enter inserts a newline and continues a list, Tab inserts two spaces, Ctrl+Enter follows the link at the cursor, and Esc saves and returns to the outline, in block selection on the page's bullet. Redo is Ctrl+Y on Linux and Cmd+Shift+Z on macOS, as in the outline.
 
 **Overlays:** typing filters the list; Up/Down or Ctrl+N/Ctrl+P move (inside an overlay Ctrl+P moves up instead of reopening the palette); Enter chooses; Esc closes. In the color picker, `1`–`8` choose a color directly and `0` removes it.
 
@@ -829,14 +815,13 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 | Area | Choice | Notes |
 | --- | --- | --- |
 | Language | Go | Simple, fast to compile, one static binary; well suited to agent-driven development |
-| UI | Native web components, HTML, CSS, JavaScript (ES modules) | Light DOM (§4.4). No frontend library or framework without Thor's approval, and no build step: files are embedded with `go:embed` and served as written |
+| UI | Native web components, HTML, CSS, JavaScript (ES modules) | Light DOM (§4.4). No frontend library or framework without Thor's approval, and no build step: files are embedded with `go:embed` and served as written CodeMirror is the one approved exception (next row). |
 | Browser features | `contenteditable="plaintext-only"`, CSS Custom Highlight API, `<dialog>`, Popover API, cascade layers, CSS nesting, `light-dark()`, custom properties, Async Clipboard, Selection API, `Intl.Segmenter`, WebSocket | Modern and native only. Anything without support in all three engines needs a fallback that keeps behavior correct |
 | Server | Go `net/http` + `github.com/coder/websocket` | Loopback only. One WebSocket per tab |
 | CLI | Cobra | Shared by quick capture, scripting and agents |
 | Database | `modernc.org/sqlite` | Pure Go; no C toolchain, so cross-builds stay simple. Online backup API verified in P0-05 |
 | Text | `rivo/uniseg` | Grapheme boundaries in server-side text operations; the browser uses `Intl.Segmenter` |
-| Markdown | goldmark | Pages rendered to sanitized HTML on the server, with source positions for mode switching |
-| Syntax highlighting | chroma | Code blocks as CSS classes, colored by theme tokens |
+| Page editor | CodeMirror 6 (MIT) | Live preview and the plain-text settings editor (§5.7). One committed, prebuilt vendor file, embedded like other assets, rebuilt only on upgrade. Parses Markdown and highlights code in the browser, colored by theme tokens through CSS classes. Go never renders Markdown |
 | Fuzzy matching | A Go fuzzy-finder library such as `sahilm/fuzzy` | Jump and command palettes, on the server |
 | Import / export | `encoding/json`, `encoding/xml`, small list parser | JSON, OPML, Markdown |
 | Config | TOML (`pelletier/go-toml/v2`) | Platform paths per §7.1 |
@@ -998,8 +983,8 @@ Six phases, each with an exit gate:
 | Phase | Scope | Exit gate |
 |---|---|---|
 | **0 · Storage and browser foundations** | Schema, history, JSON round trip; server skeleton, protocol, outline component, key matrix | Export and import are identical; a crash loses at most the unsealed typing; the outline skeleton passes in all three engines |
-| **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages with the built-in editor, formatting; theming, palettes, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side visual review passes |
-| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; drag-to-move, jump palette, history, page mode sync and split view; scheduled export, capture window, Edit here takeover | Every *Must* row of the parity checklist works |
+| **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages with live preview, formatting; theming, palettes, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side visual review passes |
+| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; drag-to-move, jump palette, history; scheduled export, capture window, Edit here takeover | Every *Must* row of the parity checklist works |
 | **3 · Obsidian-inspired features** | Backlinks, saved searches, templates | Backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs |
 | **4 · Agent integration** | Batch `apply`, `forget`, agent usage guide, richer queries | An agent completes a scripted multi-step task with `apply` and the usage guide, and one `hyphal revert` undoes it as a unit |
 | **5 · Multi-device sync** | Device IDs, HLC merge, per-device logs, compaction; any-folder sync (iCloud Drive, Syncthing) | Two machines edit offline and converge with nothing lost |
@@ -1050,7 +1035,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 15 | External editing | None; cut in row 58 | §12.2 |
 | 16 | Configuration | XDG paths, TOML, explicit `--db` | §7.1 |
 | 17 | Long-form content | Bullets stay one line; an optional Markdown page per bullet, opened with page zoom. Replaces notes | §5.7 |
-| 18 | Language and UI stack | Go server with native web components, HTML, CSS and JS; no frontend libraries without approval; no build step; pure-Go SQLite | §9.1 |
+| 18 | Language and UI stack | Go server with native web components, HTML, CSS and JS; no frontend libraries without approval; no build step; pure-Go SQLite; CodeMirror approved for pages (row 59) | §9.1 |
 | 19 | Platforms | Linux (Omarchy first) and macOS; no Windows | §6.4, §7.1 |
 | 20 | Sync | Nothing sync-specific before Phase 5; then per-device logs in a shared folder, no server | §7.6 |
 | 21 | CLI | Full CLI with JSON output in Phase 1; batch `apply` and `forget` in Phase 4; no MCP server | §10.2 |
@@ -1085,11 +1070,12 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 50 | Tabs | One server per database; one editing tab; others read-only, and the oldest takes over when the editor closes | §8.6 |
 | 51 | Local security | Loopback only, `Host` and `Origin` checks, single-use launch ticket, `HttpOnly` cookie, strict CSP, Markdown without raw HTML | §9.3 |
 | 52 | Zoom addresses | Each zoom has a URL; browser Back and Forward move through zooms | §4.1 |
-| 53 | Page editor | Built-in editor moves to Phase 1, since the browser makes it cheap; position sync and split view stay in Phase 2 | §5.7 |
+| 53 | Page editor | Built-in editor moves to Phase 1, since the browser makes it cheap; superseded by row 59 | §5.7 |
 | 54 | Mouse | Clicks and scrolling move to Phase 1 | §6.5 |
 | 56 | Drag-to-move | Native drag and drop in Phase 2, with every move still available from the keyboard | §6.5 |
 | 57 | Design style | Mycelium colors, Literata and Fraunces, hand-drawn thread icons, ruled threads with a lit focus path, Lit strands collapsed bullets, spore dots for expanded and leaf bullets, optional glowing thread, header and focused-row icons | §4.3, §4.6 |
 | 58 | External editor | Cut the `$EDITOR` round trip: all editing happens in the app. Edit settings uses the built-in plain-text editor | §4.7, §5.7 |
+| 59 | Pages | Obsidian-style live preview on CodeMirror 6 replaces view and edit modes, position sync and split view. goldmark and chroma are gone. Proven by spike P0-W2 | §5.7, §9.1 |
 | 55 | Cut features | Glyph ASCII fallbacks, terminal matrix, kitty, tmux, OSC sequences, Bubble Tea stack, wrap-layout engine, `zoom_transition`, `glyphs`, `background`, `mouse` settings | §4, §6.4, §13 |
 
 ### 12.3 Still open
@@ -1137,7 +1123,6 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | `density` | `"comfortable"` | `comfortable` or `compact` | §4.6 |
 | `thread_glow` | `false` | Soft glow on the lit thread path, with a brief pulse when focus moves | §4.3 |
 | `footer` | `true` | Footer key hints | §4.5 |
-| `split_view_min_width` | `0` (off) | Open pages in split view at or above this window width, in CSS pixels | §5.7 |
 | `[tag_colors]` | — | Per-tag color overrides | §5.9 |
 | `[keys.<context>]` | — | Key overrides per context | §6.4 |
 | `trash_days` | `30` | Days before the Trash purges | §8.3 |

@@ -105,8 +105,8 @@ Decision: the UI starts in text editing on the remembered cursor for the remembe
 ### D-033 · Messages for stale writes
 Decision: when a commit returns `Stale` nodes (another connection changed them first), the footer message is `"<text>" was also changed elsewhere; both changes are in history`. For `ErrInvalid`: `The outline changed elsewhere; nothing was changed`.
 
-### D-034 · Phase 1 page view follows URLs only
-Decision: in Phase 1, Tab cycles through URL links in page view and Enter opens them in a new tab. `[[node links]]` join in Phase 2 with node links.
+### D-034 · Phase 1 pages follow URLs only
+Decision: in Phase 1, Ctrl+click and Ctrl+Enter open URL links on a page in a new tab. `[[node links]]` join in Phase 2.
 
 ### D-035 · Task and heading markers combine
 Context: §5.4 and §7.5 list the markers one at a time. Decision: a bullet can be both a task and a heading. `ConvertLeadingMarker` takes a task marker first, then a heading marker (`[ ] ## Title`). The dialect writes them in the same order.
@@ -142,6 +142,9 @@ Context: §8.6. Decision: one `core.Outline` and one undo stack per server, shar
 
 ### D-045 · Bundled fonts and drawn glyphs
 Context: SPEC §4.6, row 57. The agreed look depends on Literata, Fraunces and custom glyphs, and D-039 allows no build step. Decision: self-host both fonts as WOFF2 in `internal/web/assets` with their SIL Open Font License text; the CSP already serves same-origin assets. Fonts are assets rather than frontend libraries, so they carry no code. Glyphs and icons are hand-written SVG strings in `lib/glyphs.js`, with no sprite tool. Threads are one overlay SVG computed from row geometry. `plan/reports/design-mockup.html` is the reference for shapes and values; its code is not carried over.
+
+### D-046 · CodeMirror as one vendored file
+Context: SPEC §5.7, §9.1, spike P0-W2. CodeMirror needs bundling, and D-039 keeps our own code unbuilt. Decision: CodeMirror packages are bundled once into committed files under `internal/web/assets/vendor/`, which re-export the APIs we use. Our modules import from them as written, so D-039 still holds for our code. esbuild runs only through `make vendor-js`. CodeMirror's base styles are unlayered, so a small token adapter sets the properties they fix (font, line height, column, padding) to `var()` values; everything else is `page.css`. Page undo: CodeMirror's history within a visit; the outline's stack holds one step per visit, whose inverse restores the page and title to their state at opening. Seals still write change sets to history.
 
 ## Agent decisions
 

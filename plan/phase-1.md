@@ -1,6 +1,6 @@
 # Phase 1 · Minimum lovable Workflowy clone
 
-Spec: §11 row 1. Scope: editing rules, block selection, pages (view and built-in editor), formatting, theming, command palette, CLI, quick capture, Workflowy import. Every Phase 1 *Must* row in §3's parity checklist.
+Spec: §11 row 1. Scope: editing rules, block selection, pages with live preview, formatting, theming, command palette, CLI, quick capture, Workflowy import. Every Phase 1 *Must* row in §3's parity checklist.
 
 Exit gate: **a week of daily use on your own outline; side-by-side visual review passes** (human). The automated part is P1-54 (parity suite) and P1-55 (interaction matrix).
 
@@ -20,8 +20,8 @@ Wave D (CLI):              P1-25 skeleton → P1-26 node cmds · P1-27 trash/pag
                            P1-34 capture prompt
 Wave E (web base):         P1-29 theming → P1-30 shell and lifecycle → P1-31 rendering → P1-32 text editing → P1-33 structure keys
 Wave F (web features):     P1-35 block selection · P1-36 collapse/zoom · P1-37 undo · P1-38 overlays+palette+help
-                           P1-39 pickers + o · P1-40 filter UI · P1-41 clipboard/paste · P1-42 page renderer
-                           P1-43 page screen + editor · P1-45 Trash view
+                           P1-39 pickers + o · P1-40 filter UI · P1-41 clipboard/paste · P1-42 CodeMirror bundle
+                           P1-43 page screen · P1-45 Trash view
 Wave G (robustness):       P1-46 tabs/read-only/reload · P1-47 durability · P1-48 config · P1-49 first run
 Wave H (ship + gate):      P1-50 packaging/docs · P1-51 benchmarks · P1-52 reference screens · P1-53 Workflowy import (human)
                            P1-54 parity suite · P1-55 interaction matrix · P1-56 gate
@@ -298,7 +298,7 @@ The `$EDITOR` round trip was cut (SPEC §12.2 row 58).
 ### P1-19 · Page editing (core)
 Type: impl · Packages: `internal/core` · Depends on: P0-10, P0-11 · Spec: §5.7, §7.3
 
-Deliverables: `PageEditorText(tree, node) string` = `# <bullet text>\n\n<markdown>` (no blank body line when empty: `# Title\n`), used by the built-in editor; `PageEditorApply(ctx, node, edited) Plan`: if the first line is an H1 (`# …`), its text is the title → `edit_text` if changed (leading-marker conversion applies); the rest (with one leading blank line stripped) is the page; otherwise the whole file is the page and the title is unchanged. Empty page text → no page created / existing page deleted (§5.7). One change set (`source=ui`). `PlanDeletePage(node)`. Built-in editing seals per §7.3's rules applied to the page: 2 s idle, 5 s open, leaving edit mode.
+Deliverables: `PageEditorText(tree, node) string` = `# <bullet text>\n\n<markdown>` (no blank body line when empty: `# Title\n`), used by the page screen; `PageEditorApply(ctx, node, edited) Plan`: if the first line is an H1 (`# …`), its text is the title → `edit_text` if changed (leading-marker conversion applies); the rest (with one leading blank line stripped) is the page; otherwise the whole file is the page and the title is unchanged. Empty page text → no page created / existing page deleted (§5.7). One change set (`source=ui`). `PlanDeletePage(node)`. Built-in editing seals per §7.3's rules applied to the page: 2 s idle, 5 s open, leaving the page mode.
 
 Acceptance criteria:
 - AC1 Title change renames the bullet; body saved → `TestPageEditor_Rename`.
@@ -476,10 +476,10 @@ Deliverables:
 - Save indicator: nothing / `●` while typing unsealed or commits queued / red `Save failed` label on commit failure or lost connection.
 - Footer priority (§4.5): message → filter query (`/ tooltip · 12 matches`) → hints (if `footer=true`). Message persists until the next keypress, then the previous footer returns.
 - Banners: priority (failed write > lost connection > read-only > invalid config > restore info); informational ones clear on the next outline change.
-- State machine: `text`, `block`, `filter`, `page_view`, `page_edit`, `overlay`, `trash`. Esc chain per §4.7. Key routing via `lib/keys.js`: overlay → state context → global.
+- State machine: `text`, `block`, `filter`, `page`, `overlay`, `trash`. Esc chain per §4.7. Key routing via `lib/keys.js`: overlay → state context → global.
 - Lifecycle: `hyphal` starts or finds the server, gets a ticket, opens a window; exit 10 s after the last tab closes; reconnect with resend; `version` mismatch reloads the page.
 - Global commands: Ctrl+S message `"Saved automatically"`, F1 and Ctrl+P (stubs until P1-38), Ctrl+Z/Y (wired in P1-37).
-- Footer hint strings (binding): text editing `Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help`; block selection `Enter edit · x complete · d delete · z zoom · ? help · Ctrl+P commands`; page view `e edit · Tab next link · Esc back`; trash `Enter preview · r restore · d purge · Esc back`. `Ctrl` renders `⌘` on macOS.
+- Footer hint strings (binding): text editing `Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help`; block selection `Enter edit · x complete · d delete · z zoom · ? help · Ctrl+P commands`; page `Ctrl+Enter follow link · Esc back`; trash `Enter preview · r restore · d purge · Esc back`. `Ctrl` renders `⌘` on macOS.
 
 Acceptance criteria:
 - AC1 Layout stays correct at 1000×700 and 2400×1200, with the column centered → `shell layout` (e2e, ARIA snapshot + geometry).
@@ -639,30 +639,31 @@ Acceptance criteria:
 - AC3 Cut + paste elsewhere moves the nodes (same IDs) → `cut paste moves` (e2e).
 - AC4 A rejected clipboard write shows the message → `copy failure` (e2e, stubbed API).
 
-### P1-42 · Page view renderer
-Type: impl · Packages: `internal/server/pageview`, `internal/web` · Depends on: P1-29 · Spec: §5.7 (view mode), §4.6, §9.3
+### P1-42 · CodeMirror vendor bundle
+Type: impl · Packages: `internal/web`, `web-vendor/` · Depends on: P0-18 · Spec: §9.1 · D-046
 
-Deliverables: goldmark (GFM tables, strikethrough, task lists) → HTML with raw HTML disabled; link schemes per §9.3; `==highlight==` and `<color>` extensions matching `markup`; chroma as CSS classes colored by tokens in `page.css`; `data-src="start,end"` on block elements for P2 mode sync.
-
-Acceptance criteria:
-- AC1 A fixture page with every element matches a golden HTML → `TestPageView_Elements`.
-- AC2 Raw HTML, `<script>`, `javascript:` links and event attributes never reach the output → `TestPageView_Sanitized`, `FuzzPageView`.
-- AC3 Code tokens use classes only, no inline colors → `TestPageView_CodeClasses`.
-- AC4 Links in document order with source ranges → `TestPageView_Links`.
-
-### P1-43 · Page screen and built-in editor
-Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-42, P1-19 · Spec: §5.7, §6.4 (page view, page edit) · D-034
-
-Deliverables: `p` in block selection opens the page in view mode, or edit mode on a bullet without one; breadcrumb `… › ≡ view`; title as the page heading; scrolling keys; Tab/Shift+Tab focus URL links; Enter opens the focused link or edits; `<hyphal-page-editor>`: `contenteditable="plaintext-only"` over the §5.7 text with the `# Title` line, text-editing keys, Enter newline, Tab two spaces, highlighting through the Custom Highlight API from a small line-based highlighter; Esc saves and returns to view mode (or the outline if the page was deleted); Esc from view returns to block selection on the bullet; palette "Delete page".
+Deliverables: `web-vendor/` with exact-pinned CodeMirror packages, a small entry file and `make vendor-js`, which uses esbuild to write `internal/web/assets/vendor/codemirror.js` and one on-demand file per code language (JavaScript, Python, Go, CSS, HTML). Output is committed, with license text. `make check` needs no Node. Asset checks (raw colors, `innerHTML`) skip `assets/vendor/`.
 
 Acceptance criteria:
-- AC1 `p` on a bullet with a page shows view mode → `page open` (e2e).
-- AC2 `p` on a bullet without a page opens the editor; saving empty creates nothing → `page create` (e2e).
-- AC3 Editing the title line renames the bullet; Ctrl+Z after returning undoes it → `page rename undo` (e2e).
-- AC4 Esc returns to block selection on the page's bullet → `page esc` (e2e).
-- AC5 Tab focuses links, Enter opens the URL → `page links` (e2e).
-- AC6 Text-editing movement keys work across lines; Tab inserts two spaces → `page edit keys @<command>@page_edit` (e2e).
-- AC7 Highlighting never changes the text → `page edit highlight` (e2e).
+- AC1 `make vendor-js` reproduces the committed files byte for byte → CI step on changes to `web-vendor/`.
+- AC2 The core file works under the CONTRACTS CSP → `vendor loads under CSP` (e2e).
+- AC3 A code language loads only when a page uses it → `language on demand` (e2e).
+
+### P1-43 · Page screen with live preview
+Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-42, P1-19, P1-29 · Spec: §5.7, §6.4 (page keys), §9.3 · D-046
+
+Deliverables: `<hyphal-page>` around CodeMirror; `lib/livepreview.js` from `internal/pagespike/src/livepreview.js`, cleaned up, including `==highlight==` and `<color>` extensions matching `markup`; `p` opens a page with the §5.7 text including the `# Title` line; breadcrumb `… › ≡`; token adapter and `page.css` (tokens only); keys per §6.4, including arrow handling around collapsed blocks with and without Shift; seals sent as `pagetext`; `hyphal page set` applied to an open page outside its history, per §7.3; a read-only tab gets a read-only editor; palette "Delete page". Delete `internal/pagespike/` and `.github/workflows/pagespike.yml`.
+
+Acceptance criteria:
+- AC1 Port the spike's suite: reveal, click accuracy, typing, arrows, block splits, cross-block selection, drag, copy, undo, tables, code, lists, unsafe HTML and links, text integrity, composition, tokens → `page *` (e2e).
+- AC2 `p` on a bullet without a page opens it empty; leaving it empty creates nothing → `page create` (e2e).
+- AC3 Editing the title line renames the bullet; one Ctrl+Z in the outline reverses the whole visit → `page rename undo` (e2e).
+- AC4 Esc saves and returns to block selection on the page's bullet → `page esc` (e2e).
+- AC5 Ctrl+click and Ctrl+Enter follow a safe link; a plain click only places the cursor → `page links` (e2e).
+- AC6 Typing survives a `hyphal page set` during editing → `TestPage_Concurrent`, `page concurrent` (e2e).
+- AC7 A remote image makes no request and shows its alt text → `page image` (e2e).
+- AC8 Tables and fences nested in lists and quotes render and open correctly → `page nested blocks` (e2e).
+- AC9 Typing on a 2,000-line page stays within a frame at p95; report 20,000 lines → `measure page` (e2e, reports only).
 
 ### P1-44 · Withdrawn
 The `$EDITOR` round trip was cut (SPEC §12.2 row 58).
@@ -710,7 +711,7 @@ Acceptance criteria:
 ### P1-48 · Config in the UI
 Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-01, P1-38, P1-43 · Spec: §4.7, §13, §6.4 (keymap config)
 
-Deliverables: apply config at startup (theme, column width, density, thread glow, footer, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open it in the built-in plain-text editor, and `Reload` on save or when the file changes (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
+Deliverables: apply config at startup (theme, column width, density, thread glow, footer, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open it in CodeMirror as plain text, without live preview, and `Reload` on save or when the file changes (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
 
 Acceptance criteria:
 - AC1 `column_width = 60` narrows the column; `density = "compact"` applies → `config applied` (e2e).

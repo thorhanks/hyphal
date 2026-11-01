@@ -2,6 +2,10 @@
 
 Date: 2026-11-01. CI run: https://github.com/thorhanks/hyphal/actions/runs/41272941863. Code: `internal/pagespike/`.
 
+## Outcome
+
+Accepted 2026-11-01. Thor tried it by hand and it matches Obsidian. SPEC §5.7 and the plan now carry this, and the Go Markdown renderer and code highlighter are removed.
+
 ## Recommendation
 
 **Go, once Thor has tried it by hand.** CodeMirror 6 delivers Obsidian-style live preview with about 360 lines of our own code. Selection across blocks, undo, arrow keys and typing all work as one document, and no stop condition was hit.

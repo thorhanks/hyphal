@@ -169,7 +169,7 @@ test("undo and redo treat the page as one document", async ({ page }) => {
   expect(await source(page)).toContain("New Para");
   await page.keyboard.press(`${mod}+z`);
   expect(await source(page)).toBe(doc);
-  await page.keyboard.press(`${mod}+y`);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+z" : "Control+y");
   expect(await source(page)).toContain("New Para");
 });
 

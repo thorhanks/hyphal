@@ -34,7 +34,7 @@ Acceptance criteria:
 
 ### P3-03 · Backlinks overlay
 Type: impl · Packages: `internal/server`, `internal/web`, `internal/keymap` · Depends on: P3-02 · Spec: §10.1, §4.7 ("Backlinks is a floating overlay"), §4.6 (overlay look)
-Deliverables: palette command "Backlinks" (plus a block-selection key `b`, to confirm with Thor); floating overlay listing linking bullets with breadcrumbs and page snippets; Enter zooms to the source (page sources open the page in view mode scrolled to the link); Esc closes.
+Deliverables: palette command "Backlinks" (plus a block-selection key `b`, to confirm with Thor); floating overlay listing linking bullets with breadcrumbs and page snippets; Enter zooms to the source (page sources open the page scrolled to the link); Esc closes.
 Acceptance criteria:
 - AC1 Overlay lists every linking bullet and page with breadcrumb → `backlinks overlay` (e2e).
 - AC2 Enter zooms to the source → `backlinks enter` (e2e).
