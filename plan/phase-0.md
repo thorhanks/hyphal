@@ -289,7 +289,7 @@ Deliverables:
 - Add `github.com/coder/websocket`. Reconcile the package directories with ARCHITECTURE §1 (remove `internal/tui`, `internal/layout`, `internal/clipboard`; add `server`, `web`).
 - `server.Run`: loopback listener on a random port, Host and Origin checks, ticket → cookie exchange (D-041), CSP header, embedded assets, `/ws`, session goroutine (ARCHITECTURE §5), `hyphal serve [--dev] [--seed FILE]`. The `dev` build tag gates `--seed`, `window.__hyphal` and `/keyprobe`.
 - Protocol per CONTRACTS §12: `hello`, `welcome`, `text`, `action`, `window`, `state` with `textAck`.
-- `web/assets`: `index.html`, `tokens.css` with placeholder values (the design talk sets them), `base.css` with the `@layer` order, `<hyphal-app>` and `<hyphal-outline>`: row window with reuse by ID, one `contenteditable="plaintext-only"` focused row, Up/Down across wrapped lines and bullets at a stable column, Left/Right across edges, click to place the caret, the key queue, composition handling, runs rendered without `innerHTML`, marker highlights (D-042).
+- `web/assets`: `index.html`, `tokens.css` with the `dark` values from SPEC §4.6, `base.css` with the `@layer` order, `<hyphal-app>` and `<hyphal-outline>`: row window with reuse by ID, one `contenteditable="plaintext-only"` focused row, Up/Down across wrapped lines and bullets at a stable column, Left/Right across edges, click to place the caret, the key queue, composition handling, runs rendered without `innerHTML`, marker highlights (D-042).
 - `servertest.Harness` (TESTING §4), `e2e/` with `package.json` pinned, `helpers.mjs`, ported spike tests. `Makefile` targets `e2e`, `web-lint`; `mise.toml` pins Node 22. CI runs `make e2e`.
 - `internal/web` asset checks (TESTING §6).
 

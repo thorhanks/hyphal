@@ -250,7 +250,7 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 ### 12.2 Server → client
 
 ```json
-{"t":"welcome","version":"…","keymap":[…],"config":{"density":"comfortable","footer":true,"columnWidth":90},"readOnly":false}
+{"t":"welcome","version":"…","keymap":[…],"config":{"density":"comfortable","footer":true,"columnWidth":90,"threadGlow":false},"readOnly":false}
 {"t":"state","seq":7,"textAck":12,"total":10010,"start":380,"rows":[Row],
  "cursor":"<id>","off":5,"end":5,"block":["<id>"],"anchor":"<id>",
  "zoom":"<id>","crumbs":[{"id","text"}],"filter":"…","filterCount":12,
@@ -266,11 +266,11 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 `Row`:
 
 ```json
-{"id":"<id>","depth":2,"text":"<source>","runs":[Run],"kids":true,"collapsed":false,
+{"id":"<id>","depth":2,"text":"<source>","runs":[Run],"kids":true,"collapsed":false,"hidden":14,
  "done":false,"task":false,"heading":false,"page":false,"star":false,"matches":[[3,8]]}
 ```
 
-`Run`: `{"text":"…","style":["bold","italic"],"color":"red","href":"…"?}`. Marker ranges for the focused row: `{"markers":[[0,2],[6,8]]}` on that row. `depth` is `-1` for the zoom heading.
+`Run`: `{"text":"…","style":["bold","italic"],"color":"red","href":"…"?}`. Marker ranges for the focused row: `{"markers":[[0,2],[6,8]]}` on that row. `depth` is `-1` for the zoom heading. `hidden` is the number of descendants, present only on collapsed rows; `core.Tree` keeps subtree sizes so sending it costs no walk.
 
 ### 12.3 Rules
 

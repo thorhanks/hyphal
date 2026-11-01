@@ -144,6 +144,9 @@ Context: §6.4. Web convention and the browser's own behavior beat terminal conv
 ### D-044 · One session per server
 Context: §8.6. Decision: one `core.Outline` and one undo stack per server, shared by all tabs of that database; zoom and scroll window are per tab, while cursor and block selection follow the editing tab.
 
+### D-045 · Bundled fonts and drawn glyphs
+Context: SPEC §4.6, row 57. The agreed look depends on Literata, Fraunces and custom glyphs, and D-039 allows no build step. Decision: self-host both fonts as WOFF2 in `internal/web/assets` with their SIL Open Font License text; the CSP already serves same-origin assets. Fonts are assets rather than frontend libraries, so they carry no code. Glyphs and icons are hand-written SVG strings in `lib/glyphs.js`, with no sprite tool. Threads are one overlay SVG computed from row geometry. `plan/reports/design-mockup.html` is the reference for shapes and values; its code is not carried over.
+
 ## Agent decisions
 
 <!-- Append A-001, A-002, … below using the format in README §5. -->

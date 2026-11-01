@@ -2,8 +2,6 @@
 
 Audience: AI coding agents that build Hyphal. Humans are not the intended readers. Be literal: when a card says "must", it is an acceptance criterion; when it says "suggested", you may deviate if you record why in the commit message.
 
-**Do not start implementation cards yet.** Thor reviews this plan and holds a design-style talk first (SPEC §12.3, §12.4). Remove this paragraph when that is done.
-
 ## 1. Documents and precedence
 
 | File | Contains | Load when |

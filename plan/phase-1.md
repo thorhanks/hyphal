@@ -4,7 +4,7 @@ Spec: §11 row 1. Scope: editing rules, block selection, pages (view and built-i
 
 Exit gate: **a week of daily use on your own outline; side-by-side visual review passes** (human). The automated part is P1-54 (parity suite) and P1-55 (interaction matrix).
 
-**Precondition:** the design talk has happened and its outcome is in §4.6 and `tokens.css` (SPEC §12.3). Wave E's look depends on it.
+**Visual reference:** SPEC §4.3 and §4.6, and `plan/reports/design-mockup.html`, a working mockup with the agreed look (D-045).
 
 ## Waves and dependencies
 
@@ -467,7 +467,8 @@ Acceptance criteria:
 Type: impl · Packages: `internal/server/theme`, `internal/web` · Depends on: P0-18, P1-01 · Spec: §4.4, §4.6 (tokens), §13 (`theme`)
 
 Deliverables:
-- `tokens.css` completed with the design talk's values: every color, font, size, spacing, radius, glyph and motion token.
+- `tokens.css` completed with the values in SPEC §4.6: every color, font, size, spacing, radius, glyph and motion token. Literata and Fraunces as bundled WOFF2 files with their license text (D-045).
+- `lib/glyphs.js` and the thread-drawn icon set, redrawn cleanly from the mockup.
 - Bundled `themes/light.css` and `themes/dark.css`; `auto` follows `prefers-color-scheme` through `light-dark()`.
 - `/theme.css` serves the active theme: `theme = auto` → Omarchy mapping if `colors.toml` exists, else the bundled pair; `light`/`dark`; or a file from `themes/`. `/user.css` serves `user.css`. Both load into their cascade layers.
 - `theme.MapOmarchy(path) (css string, ok bool)`: hex colors and `mode` only; missing or unreadable → `ok=false`, no error.
@@ -510,9 +511,10 @@ Acceptance criteria:
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-30 · Spec: §4.1–§4.3, §4.6, §4.9, §5.7 (page marker), §9.3
 
 Deliverables:
-- `tree`/`treeitem` ARIA. Zoom heading row (not at Home, D-036); rows from `VisibleRows`; glyphs from tokens; task checkboxes after the glyph; completed: dim + strikethrough, glyph unchanged; heading-style bullets; density via `data-density`.
+- `tree`/`treeitem` ARIA. Zoom heading row (not at Home, D-036); rows from `VisibleRows`; spore and Lit strands glyphs as inline SVG, with `data-state` and `data-strands` on the row; hidden count after the text of a collapsed bullet; task checkboxes after the glyph; completed: dim + strikethrough, glyph unchanged; heading-style bullets; density via `data-density`.
 - Indent per the `--indent` token, half past 8 levels below the zoom; on entering such a row, once per zoom, message `"Deep outline · Esc z zooms in"`.
-- Indent guides when `indent_guides=true`. Page marker `≡`.
+- Threads per §4.3: ruled paths in one overlay SVG, recomputed only when row geometry or focus changes, never on a plain keystroke that doesn't change row height. Lit path to the focused bullet; `thread_glow` adds the glow and pulse. Draw-in on expand.
+- Page marker uses the page icon. Header icon strip and focused-row icons per §4.6, each with an accessible name and the same action as its key.
 - Runs rendered as spans; links as anchors; focused row per D-042.
 - Stable virtualization: measured row heights cached by ID so long jumps don't shift the view; scroll margin (§4.6); the caret's row stays fixed when collapsing or expanding; Page Up/Down.
 - Filter highlights through the Custom Highlight API and page-match lines beneath the bullet; filter state arrives in P1-40.
@@ -528,6 +530,9 @@ Acceptance criteria:
 - AC7 Unchanged rows keep their DOM node across updates → `rows reused` (e2e).
 - AC8 An empty zoom shows the virtual bullet; typing creates a real node → `virtual bullet` (e2e).
 - AC9 Bullet text with `<script>` or HTML stays literal text → `no HTML from data` (e2e), `TestWebAssets_NoInnerHTML`.
+- AC10 Threads connect each visible child to its parent, and only the focus path is lit, after moving, collapsing and scrolling → `threads` (e2e geometry).
+- AC11 Strand count follows the hidden count at 4, 5, 9, 10, 24 and 25 → `strand levels` (e2e).
+- AC12 With `thread_glow` on and reduced motion set, the glow shows and no animation runs → `thread glow` (e2e).
 
 ### P1-32 · Text editing
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-31, P1-15 · Spec: §5.1, §5.8 (wrap keys), §6.1, §6.4 (text-editing table), §7.3
@@ -731,7 +736,7 @@ Acceptance criteria:
 ### P1-48 · Config in the UI
 Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-01, P1-38, P1-44 · Spec: §4.7, §13, §6.4 (keymap config)
 
-Deliverables: apply config at startup (theme, column width, density, guides, footer, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open through `editor.command`, watch the file and `Reload` on change (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
+Deliverables: apply config at startup (theme, column width, density, thread glow, footer, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open through `editor.command`, watch the file and `Reload` on change (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
 
 Acceptance criteria:
 - AC1 `column_width = 60` narrows the column; `density = "compact"` applies → `config applied` (e2e).

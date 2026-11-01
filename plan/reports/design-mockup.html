@@ -1,0 +1,362 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Hyphal Style Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Literata:opsz,wght@7..72,400;7..72,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: the chosen Hyphal window beside a panel of bullet options that restyle it live.
+   This page commits to one dark look, because Hyphal's chosen theme is dark. */
+:root {
+  color-scheme: dark;
+  --page: #18191b; --page-fg: #d9dadc; --page-muted: #9b9ea3; --page-line: #303236;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --bg: #2c2824; --raise: #37322c; --text: #eee6d8; --muted: #b3a896; --thread: #75695a; --accent: #e8b25c; --tag: #9cc28f;
+  --body: "Literata", Georgia, serif; --display: "Fraunces", Georgia, serif;
+  --size: 16.5px; --lead: 1.5;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--page); color: var(--page-fg); font: 16px/1.55 var(--sans);
+  padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1320px; margin-inline: auto; display: grid; gap: 32px; }
+.intro { max-width: 68ch; display: grid; gap: 10px; }
+h1 { font-size: 1.75rem; line-height: 1.2; font-weight: 500; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.1rem; font-weight: 500; margin: 0; }
+p { margin: 0; }
+.muted { color: var(--page-muted); }
+.stage { display: grid; gap: 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); align-items: start; }
+
+/* ---- App window ---- */
+.app {
+  background: var(--bg); color: var(--text); font: var(--size)/var(--lead) var(--body);
+  border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; min-height: 620px; min-width: 0;
+}
+.bar { display: flex; align-items: center; gap: 10px; padding: 12px 18px; color: var(--muted); font-size: .84em; flex-wrap: wrap; }
+.crumbs { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; }
+.crumbs .ico { width: 16px; height: 16px; }
+.tools { display: flex; gap: 2px; }
+button.tool { background: none; border: 0; color: var(--muted); padding: 5px; border-radius: 6px; cursor: pointer; display: grid; place-items: center; }
+button.tool:hover { background: var(--raise); color: var(--text); }
+button:focus-visible, .row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.ico .tip { fill: var(--accent); stroke: none; }
+.foot { padding: 10px 18px; color: var(--muted); font-size: .8em; }
+
+/* ---- Outline ---- */
+.outline { position: relative; padding: 6px 18px 18px; min-width: 0; }
+.threads { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.threads path { fill: none; stroke: var(--thread); stroke-width: 1.25; }
+.threads path.live { stroke: var(--accent); stroke-width: 1.75; }
+.glow .threads path.live { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 70%, transparent)); }
+.glow .on-path .slot svg { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 70%, transparent)); }
+.threads path.grow { stroke-dasharray: 1; animation: grow .32s ease-out both; }
+.threads path.pulse { stroke: #fff6e4; stroke-width: 2.5; stroke-dasharray: .05 .95; opacity: 0; animation: pulse .7s ease-out 1; }
+@keyframes grow { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes pulse { 0% { stroke-dashoffset: .05; opacity: .9; } 100% { stroke-dashoffset: -.95; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .threads path.grow { animation: none; } .threads path.pulse { display: none; } }
+.title-row { display: flex; align-items: center; gap: 8px; padding-block: 2px 12px; }
+.title-row h3 { margin: 0; font: 600 1.55em/1.2 var(--display); font-variation-settings: "SOFT" 100, "WONK" 1; }
+.row { position: relative; display: flex; gap: 8px; align-items: flex-start; padding: 2px 6px 2px 0; border-radius: 6px; cursor: text; }
+.row[data-top] { margin-top: 12px; }
+.row.focus { background: color-mix(in srgb, var(--raise) 62%, transparent); }
+.slot { flex: 0 0 18px; height: calc(var(--size) * var(--lead)); display: grid; place-items: center; background: none; border: 0; padding: 0; position: relative; z-index: 1; }
+.slot[data-kids] { cursor: pointer; }
+svg.b { width: 18px; height: 18px; overflow: visible; display: block; }
+.b .node { fill: var(--muted); stroke: none; }
+.b .line { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-linecap: round; }
+.b .hole { fill: var(--bg); stroke: var(--muted); stroke-width: 1.3; }
+.on-path .b .node { fill: var(--accent); }
+.on-path .b .line, .on-path .b .hole { stroke: var(--accent); }
+.text { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.done .text { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.heading .text { font-weight: 600; }
+.tag { color: var(--tag); font-size: .9em; }
+.count { color: var(--muted); font-size: .78em; margin-left: 6px; white-space: nowrap; }
+.mark { display: inline-block; vertical-align: -3px; margin-left: 6px; width: 16px; height: 16px; color: var(--muted); }
+.check { display: inline-block; vertical-align: -2px; margin-right: 6px; width: 15px; height: 15px; }
+.actions { display: none; flex: none; }
+.row.focus .actions { display: flex; }
+.actions .tool { padding: 2px; }
+.actions .ico { width: 18px; height: 18px; }
+
+/* ---- Option panel ---- */
+.panel { display: grid; gap: 20px; min-width: 0; }
+.setting { display: flex; gap: 12px; align-items: center; cursor: pointer; }
+.setting input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; margin: 0; }
+.options { display: grid; gap: 8px; }
+.opt {
+  --bg: #2c2824;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; text-align: left; width: 100%;
+  background: none; color: var(--page-fg); border: 1px solid var(--page-line); border-radius: 8px; padding: 10px 14px; font: inherit; cursor: pointer;
+}
+.opt:hover { border-color: var(--page-muted); }
+.opt[aria-pressed="true"] { border-color: var(--accent); background: var(--bg); }
+.opt strong { font-weight: 500; }
+.opt small { grid-column: 1; color: var(--page-muted); font-size: .86rem; line-height: 1.4; }
+.states { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 12px; background: var(--bg); border-radius: 6px; padding: 8px 12px; }
+.states .big svg.b { width: 30px; height: 30px; }
+.b .lit { fill: var(--accent); }
+.b .mask { fill: var(--bg); }
+.b .hair { stroke-width: .9; }
+.kinds { display: grid; gap: 10px; }
+.kind { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; }
+@media (min-width: 960px) { .app { position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>Mycelium with ruled threads</h1>
+    <p>This is the look you chose: Mycelium's colors, type and icons, with Field Plate's straight threads. Foxfire's glow is now a setting you can switch on.</p>
+    <p class="muted">Pick a collapsed bullet and the outline changes with it. Steam Deck testing, Design notes, Menu rewrite and Reading list are the collapsed rows to watch. Click a row to move focus, and click a bullet with children to collapse or expand it.</p>
+  </header>
+  <section class="stage">
+    <div class="app" id="app">
+      <div class="bar">
+        <nav class="crumbs" aria-label="Breadcrumb" id="crumbs"></nav>
+        <div class="tools" id="tools"></div>
+      </div>
+      <div class="outline" id="outline"><svg class="threads" id="threads" aria-hidden="true"></svg><div class="title-row"><span class="slot" id="titleSlot"></span><h3>Projects</h3></div><div class="rows" id="rows" role="tree"></div></div>
+      <div class="foot">Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help</div>
+    </div>
+    <div class="panel">
+      <label class="setting"><input type="checkbox" id="glow"><span><strong style="font-weight:500">Glowing thread</strong> <span class="muted">· app setting, off by default</span></span></label>
+      <h2>The three kinds of bullet</h2>
+      <div class="kinds" id="kinds"></div>
+      <h2>Collapsed bullet options</h2>
+      <p class="muted">Each option shows actual size, then enlarged with few, some, more and many hidden bullets.</p>
+      <div class="options" id="options"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const ICONS = {
+  home: '<path d="M3.6 11.6C6.2 9 9 6.4 12 3.8c3 2.6 5.8 5.2 8.4 7.8"/><path d="M6 9.8c0 3.2.2 6.6.6 10.2 3.4.4 7.4.4 10.8 0 .4-3.6.6-7 .6-10.2"/><circle class="tip" cx="20.6" cy="11.8" r="1.6"/>',
+  search: '<path d="M15.6 14.9c1.8-1.9 2.2-5.3.4-7.6-2-2.6-6-3.2-8.6-1.3C4.8 8 4.2 11.8 6.2 14.4c1.8 2.4 5.4 3 8 1.4 1.5 1.1 3.4 2.8 5 4.4"/><circle class="tip" cx="19.8" cy="20.8" r="1.7"/>',
+  star: '<path d="M12 3.4c.9 2.6 1.7 4.6 2.7 5.8 1.7.4 3.9.6 6.1.8-1.8 1.6-3.4 2.9-4.4 4.1.4 1.9 1 4.1 1.5 6.3-2-1.2-3.9-2.4-5.7-3.2-2 1-4 2.1-5.9 3.4.6-2.3 1.1-4.6 1.5-6.5-1.4-1.2-3.1-2.6-4.6-4 2.2-.2 4.4-.4 6.2-.8.9-1.7 1.8-3.7 2.6-5.9z"/><circle class="tip" cx="12" cy="3.4" r="1.6"/>',
+  trash: '<path d="M4.2 6.8c3.8-.6 11.4-.7 15.6-.1"/><path d="M6.2 7c.3 4 .6 9 1.3 13 2.5.6 6.5.6 9 0 .7-4 1.1-9 1.4-13"/><path d="M9.6 6.3c.2-1.7 1.2-2.7 2.4-2.7s2.2 1 2.4 2.6"/><path d="M10.2 10.6c.2 2 .3 4 .5 6"/><path d="M13.8 10.6c-.2 2-.3 4-.5 6"/><circle class="tip" cx="4" cy="6.8" r="1.5"/>',
+  history: '<path d="M4.6 8.6c1.6-3.2 4.8-5 8-4.7 4.4.4 7.8 4.1 7.6 8.5-.2 4.5-4 8-8.4 7.8-3.4-.2-6.4-2.4-7.4-5.6"/><path d="M4.2 4.4c.1 1.4.2 3 .4 4.4 1.4-.1 2.8-.2 4.2-.4"/><path d="M12 8c0 1.6.1 3 .2 4.4 1.2.7 2.4 1.4 3.4 2.1"/><circle class="tip" cx="15.9" cy="14.7" r="1.6"/>',
+  page: '<path d="M6 3.6c2.8-.2 5.6-.2 8.2-.1 1.6 1.6 3 3.2 4.2 4.8.2 3.8.2 8-.1 12-3.8.3-8.2.3-12.2 0-.3-5.4-.3-11.2-.1-16.7z"/><path d="M14 3.8c0 1.6.1 3.2.3 4.8 1.4.1 2.8.1 4 0"/><path d="M8.8 13c2.2-.2 4.2-.2 6.4 0"/><path d="M8.8 16.6c1.4-.1 2.8-.1 4 0"/><circle class="tip" cx="15.4" cy="13" r="1.4"/>',
+  commands: '<path d="M4.4 7c2 1.6 3.8 3.2 5.6 5-1.8 1.8-3.6 3.6-5.6 5.2"/><path d="M12.6 17.4c2.4-.2 4.8-.2 7.2 0"/><circle class="tip" cx="20.2" cy="17.4" r="1.7"/>',
+};
+const LABELS = { search: 'Search', star: 'Star', trash: 'Trash', history: 'History', page: 'Page', commands: 'Commands' };
+const icon = name => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+
+const dot = r => `<circle class="node" cx="9" cy="9" r="${r}"/>`;
+const blob = r => `<path class="node" d="M${9 - r} 9c0-${(r * .6).toFixed(2)} ${(r * .4).toFixed(2)}-${r} ${r}-${r}s${(r * 1.05).toFixed(2)} ${(r * .35).toFixed(2)} ${r} ${r}-${(r * .45).toFixed(2)} ${(r * .95).toFixed(2)}-${r} ${r}-${r}-${(r * .45).toFixed(2)}-${r}-${r}z"/>`;
+const OPEN = blob(3.4), LEAF = blob(2.2);
+const around = (count, inner, from = 0, sweep = 360) => Array.from({ length: count }, (_, i) => `<g transform="rotate(${from + i * sweep / (sweep === 360 ? count : Math.max(count - 1, 1))} 9 9)">${inner}</g>`).join('');
+const spoke = d => `<path class="line" d="${d}"/>`;
+const strandsFor = hidden => hidden < 5 ? 2 : hidden < 10 ? 3 : hidden < 25 ? 4 : 5;
+
+const EARLIER = [
+  { id: 'spore', name: 'Spore', note: 'Your first favorite. Three curved strands reach out to the right.',
+    shut: () => blob(3.1) + '<path class="line" d="M11.6 8c1-.9 2-1.6 3.2-2.2"/><path class="line" d="M12 9.2c1.1 0 2.2 0 3.5.2"/><path class="line" d="M11.5 10.4c1 .7 1.9 1.5 2.9 2.5"/>' },
+  { id: 'print', name: 'Spore print', note: 'Your second favorite. A full burst of gills all the way around.',
+    shut: () => blob(2.8) + around(8, spoke('M9 5.2V2.8')) },
+  { id: 'count', name: 'Growing strands', note: 'Spore, but it shows size: more hidden bullets means more strands, from two up to five.',
+    shut: n => blob(3) + around(strandsFor(n), spoke('M12.4 9H15.8'), strandsFor(n) === 1 ? 0 : -50, strandsFor(n) === 1 ? 1 : 100) },
+  { id: 'half', name: 'Half print', note: 'Spore print cut to a fan on the right, so it hints which way the bullet will grow.',
+    shut: () => blob(3) + around(5, spoke('M12.6 9H15.6'), -70, 140) },
+  { id: 'gills', name: 'Gill disc', note: 'A cap seen from below: a ring with gills inside it, holding its contents in.',
+    shut: () => '<circle class="hole" cx="9" cy="9" r="5.6"/>' + around(10, spoke('M9 6.6V3.8')) + blob(1.5) },
+  { id: 'halo', name: 'Halo', note: 'The plainest. A spore inside a thin ring, like a seed in a shell.',
+    shut: () => '<circle class="hole" cx="9" cy="9" r="5.6"/>' + blob(2.6) },
+  { id: 'cloud', name: 'Spore cloud', note: 'A spore released into a ring of tiny specks, like a puff of spores.',
+    shut: () => blob(2.6) + around(8, '<circle class="node" cx="9" cy="3.2" r=".95"/>') },
+  { id: 'fuzz', name: 'Fuzz', note: 'Fine, uneven hairs all around, like mold on a petri dish.',
+    shut: () => blob(2.8) + [2.6, 1.6, 2.9, 1.8, 2.4, 1.5, 2.8, 1.7, 2.5, 1.5, 2.9, 1.9].map((l, i) => `<g transform="rotate(${i * 30} 9 9)"><path class="line hair" d="M9 5.3V${(5.3 - l).toFixed(1)}"/></g>`).join('') },
+  { id: 'cluster', name: 'Cluster', note: 'Several spores packed together, as if the hidden bullets are sitting inside.',
+    shut: () => '<circle class="node" cx="7.2" cy="6.6" r="2.5"/><circle class="node" cx="12" cy="8" r="2.2"/><circle class="node" cx="8.2" cy="11.6" r="2.3"/><circle class="node" cx="12.6" cy="12.4" r="1.4"/>' },
+  { id: 'stack', name: 'Stacked', note: 'A spore with another tucked behind it, like a stack of cards with more underneath.',
+    shut: () => '<circle class="hole" cx="11.6" cy="9" r="3.4"/>' + blob(3.4).replace('M5.6 9', 'M4.4 9').replace(/^<path class="node"/, '<path class="node"') },
+];
+/* Mushrooms stand on a short run of thread at y=13, so these bullets drop the incoming thread 4px to meet it. */
+const GROUND = '<path class="line" d="M1 13H17"/>';
+const mush = (x, stem, w) => {
+  const rim = 13 - stem, crown = rim - w * 1.7;
+  return `<path class="line" d="M${x} 13V${rim}"/><path class="node" d="M${x - w} ${rim}C${x - w} ${crown} ${x + w} ${crown} ${x + w} ${rim}Q${x} ${rim + 1} ${x - w} ${rim}z"/>`;
+};
+const bell = (x, stem, w) => {
+  const rim = 13 - stem;
+  return `<path class="line" d="M${x} 13V${rim}"/><path class="node" d="M${x - w} ${rim}C${x - w} ${rim - 4} ${x - w * .5} ${rim - 6.4} ${x} ${rim - 6.4}S${x + w} ${rim - 4} ${x + w} ${rim}z"/>`;
+};
+const dome = (x, w) => `<path class="node" d="M${x - w} 13C${x - w} ${13 - w * 1.7} ${x + w} ${13 - w * 1.7} ${x + w} 13z"/>`;
+const ONE = () => mush(9, 4.6, 4), TWO = () => mush(5.2, 3, 2.9) + mush(11.8, 5, 3.6), THREE = () => mush(3.6, 2.6, 2.4) + mush(9.2, 5.2, 3.4) + mush(14.8, 2.4, 2.2);
+const MUSHROOMS = [
+  { id: 'patch', name: 'Growing patch', drop: 4, note: 'More hidden bullets means more mushrooms: one up to 4, two up to 9, three from 10.',
+    shut: n => GROUND + (n < 5 ? ONE() : n < 10 ? TWO() : THREE()) },
+  { id: 'single', name: 'Single mushroom', drop: 4, note: 'One clear mushroom on the thread. The simplest and easiest to read at actual size.',
+    shut: () => GROUND + ONE() },
+  { id: 'troop', name: 'Troop', drop: 4, note: 'Always three mushrooms of different heights, like a small group on a log.',
+    shut: () => GROUND + THREE() },
+  { id: 'inkcap', name: 'Inkcaps', drop: 4, note: 'Tall, narrow bell-shaped caps. A different silhouette from the classic dome.',
+    shut: () => GROUND + bell(5.6, 1.6, 2.2) + bell(11.8, 2.4, 2.7) },
+  { id: 'buttons', name: 'Buttons', drop: 4, note: 'Young mushrooms just breaking through, with no stems. The quietest of the set.',
+    shut: () => GROUND + dome(4.6, 2.6) + dome(10.2, 3.6) + dome(15, 1.8) },
+  { ...EARLIER.find(b => b.id === 'count'), name: 'Growing strands (backup)', note: 'Your backup, kept here to compare against.' },
+];
+/* Every option in this round scales with the hidden count: level 1 up to 4, 2 up to 9, 3 up to 24, 4 from 25. */
+const level = n => n < 5 ? 1 : n < 10 ? 2 : n < 25 ? 3 : 4;
+const fan = (count, inner, centre) => around(count, inner, centre - 50, 100);
+const PIN_X = [[6, 12], [4, 9, 14], [3.5, 7.5, 11, 14.5], [2.5, 6, 9.2, 12.4, 15.5]];
+const PIN_H = [5, 7.4, 4.2, 6.6, 3.6];
+const coil = turns => {
+  const steps = Math.round(turns * 24), growth = 6.2 / (turns * Math.PI * 2);
+  let d = 'M9 9';
+  for (let i = 1; i <= steps; i++) {
+    const t = i / 24 * Math.PI * 2, r = growth * t;
+    d += `L${(9 + r * Math.cos(t)).toFixed(2)} ${(9 + r * Math.sin(t)).toFixed(2)}`;
+  }
+  return `<circle class="mask" cx="9" cy="9" r="6.8"/><path class="line" d="${d}"/>`;
+};
+const BRANCHES = ['M13 9l2-3.4', 'M14.5 9l2 3.4', 'M16 9l2-3.4', 'M17 9l2 3.4'];
+const BULLETS = [
+  { ...EARLIER.find(b => b.id === 'count'), name: 'Growing strands', note: 'Kept from last round. Plain strands reaching right.' },
+  { ...MUSHROOMS[0], note: 'Kept from last round. Mushrooms standing on the thread.' },
+  { id: 'tipped', name: 'Lit strands', note: 'Growing strands with a lit tip on each one, matching the tips on your icons.',
+    shut: n => blob(2.8) + fan(level(n) + 1, spoke('M12.2 9H14.8') + '<circle class="lit" cx="15.9" cy="9" r="1.15"/>', 0) },
+  { id: 'pins', name: 'Pinheads', drop: 4, note: 'Between strands and mushrooms: tiny stems with round heads, the stage just before a mushroom forms.',
+    shut: n => GROUND + PIN_X[level(n) - 1].map((x, i) => `<path class="line" d="M${x} 13V${13 - PIN_H[i]}"/><circle class="node" cx="${x}" cy="${13 - PIN_H[i]}" r="1.35"/>`).join('') },
+  { id: 'fairy', name: 'Fairy ring', note: 'Mushrooms really do grow in rings. The ring of specks around the spore fills in as the count grows.',
+    shut: n => blob(2.4) + around([3, 4, 6, 8][level(n) - 1], '<circle class="node" cx="9" cy="3.4" r="1.15"/>') },
+  { id: 'chain', name: 'Spore chain', note: 'Spores budding off in a line, each smaller than the last, as some molds really do.',
+    shut: n => blob(3) + [[13.7, 1.5], [16.8, 1.2], [19.3, .95], [21.3, .75]].slice(0, level(n)).map(([x, r]) => `<circle class="node" cx="${x}" cy="9" r="${r}"/>`).join('') },
+  { id: 'branch', name: 'Branches', note: 'The thread carries on past the spore and forks, with a new fork for each size step.',
+    shut: n => blob(2.6) + spoke('M11 9H' + (13 + level(n) * 1.5)) + BRANCHES.slice(0, level(n)).map(spoke).join('') },
+  { id: 'roots', name: 'Roots', note: 'Strands hang down instead of out, which hints that the hidden bullets sit below this one.',
+    shut: n => blob(3) + fan(level(n) + 1, spoke('M12.4 9H15.8'), 90) },
+  { id: 'comb', name: 'Folded threads', note: 'A tiny copy of the real threads, with one stub per size step. It says exactly what is hidden.',
+    shut: n => blob(2.6) + spoke('M9 11V' + (11 + level(n) * 2.5)) + Array.from({ length: level(n) }, (_, i) => spoke(`M9 ${13.5 + i * 2.5}H13`)).join('') },
+  { id: 'coil', name: 'Coil', note: 'Thread wound up and waiting to be let out. More hidden bullets means more turns.',
+    shut: n => coil([1.25, 1.75, 2.25, 2.75][level(n) - 1]) },
+];
+const svgB = inner => `<svg class="b" viewBox="0 0 18 18" aria-hidden="true">${inner}</svg>`;
+
+const TREE = { id: 'root', text: 'Projects', kids: [
+  { id: 'cc', text: 'ControllerCraft', heading: true, kids: [
+    { id: 'dev', text: 'Development', kids: [
+      { id: 'inv', text: 'Inventory navigation', done: true },
+      { id: 'menu', text: 'Menu rewrite', done: true, shut: true, hidden: 3, kids: [{ id: 'm1', text: 'Settings screen' }] },
+      { id: 'map', text: 'Improve controller mappings <span class="tag">#input</span>' },
+      { id: 'tip', text: 'Fix tooltip positioning when the panel sits near the right edge of an ultrawide window' },
+      { id: 'deck', text: 'Steam Deck testing', shut: true, hidden: 6, kids: [{ id: 'd1', text: 'Check the on-screen keyboard' }, { id: 'd2', text: 'Measure input latency in docked mode' }] },
+    ] },
+    { id: 'notes', text: 'Design notes', page: true, shut: true, hidden: 14, kids: [{ id: 'n1', text: 'Menu sounds' }, { id: 'n2', text: 'Colour-blind palette' }] },
+  ] },
+  { id: 'lh', text: 'Lighthouse', heading: true, kids: [
+    { id: 'roof', text: 'Price the <strong>keeper’s cottage</strong> roof work', page: true },
+    { id: 'ferry', text: 'Book the ferry for March <span class="tag">#travel</span>', task: true },
+  ] },
+  { id: 'read', text: 'Reading list', star: true, shut: true, hidden: 31, kids: [{ id: 'r1', text: 'The Hidden Life of Trees' }, { id: 'r2', text: 'Entangled Life' }] },
+] };
+
+const state = { focus: 'tip', open: new Set(), bullet: BULLETS[2] };
+(function init(n) { if (n.kids) { if (!n.shut) state.open.add(n.id); n.kids.forEach(init); } })(TREE);
+
+const $ = id => document.getElementById(id);
+const app = $('app'), rowsEl = $('rows'), svg = $('threads'), outline = $('outline'), titleSlot = $('titleSlot');
+$('crumbs').innerHTML = `${icon('home')}<span>›</span><span>Projects</span>`;
+$('tools').innerHTML = ['search', 'star', 'history', 'trash', 'commands'].map(n => `<button class="tool" type="button" aria-label="${LABELS[n]}" title="${LABELS[n]}">${icon(n)}</button>`).join('');
+
+const ancestors = (id, n = TREE, path = []) => {
+  if (n.id === id) return path;
+  for (const k of n.kids || []) { const r = ancestors(id, k, [...path, n.id]); if (r) return r; }
+  return null;
+};
+const lit = () => new Set([...(ancestors(state.focus) || []), state.focus]);
+const shape = (n, open) => n.kids ? (open ? OPEN : state.bullet.shut(n.hidden || 1)) : LEAF;
+
+function draw(reveal, pulse) {
+  titleSlot.innerHTML = svgB(OPEN);
+  titleSlot.parentElement.classList.add('on-path');
+  const on = lit();
+  let html = '';
+  const walk = (n, depth, top) => {
+    const open = state.open.has(n.id);
+    html += `<div class="row ${state.focus === n.id ? 'focus' : ''} ${n.done ? 'done' : ''} ${n.heading ? 'heading' : ''} ${on.has(n.id) ? 'on-path' : ''}" data-id="${n.id}" ${top ? 'data-top' : ''} role="treeitem" tabindex="0" style="margin-left:${depth * 24}px">
+      <button type="button" class="slot" ${n.kids ? 'data-kids' : ''} aria-label="${n.kids ? (open ? 'Collapse' : 'Expand') : 'Bullet'}" data-node="${n.id}">${svgB(shape(n, open))}</button>
+      <div class="text">${n.task ? '<svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3"/></svg>' : ''}${n.text}${n.page ? `<svg class="ico mark" viewBox="0 0 24 24" aria-hidden="true">${ICONS.page}</svg>` : ''}${n.star ? `<svg class="ico mark" viewBox="0 0 24 24" aria-hidden="true">${ICONS.star}</svg>` : ''}${n.kids && !open && n.hidden ? `<span class="count">${n.hidden}</span>` : ''}</div>
+      <div class="actions">${['page', 'star', 'trash'].map(a => `<button class="tool" type="button" aria-label="${LABELS[a]}" title="${LABELS[a]}">${icon(a)}</button>`).join('')}</div>
+    </div>`;
+    if (n.kids && open) n.kids.forEach(k => walk(k, depth + 1, false));
+  };
+  TREE.kids.forEach(k => walk(k, 0, true));
+  rowsEl.innerHTML = html;
+  paint(reveal, pulse);
+}
+
+function paint(reveal, pulse) {
+  const on = lit();
+  const box = outline.getBoundingClientRect();
+  const at = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2 - box.left, y: r.top + r.height / 2 - box.top }; };
+  const quiet = [], live = [], pulses = [];
+  const visit = (n, from) => {
+    for (const k of n.kids || []) {
+      const el = rowsEl.querySelector(`[data-node="${k.id}"]`);
+      if (!el) continue;
+      const to = at(el), r = 5;
+      if (k.kids && !state.open.has(k.id)) to.y += state.bullet.drop || 0;
+      const d = `M${from.x} ${from.y}V${to.y - r}Q${from.x} ${to.y} ${from.x + r} ${to.y}H${to.x}`;
+      const isLive = on.has(k.id);
+      (isLive ? live : quiet).push(`<path d="${d}" pathLength="1" class="${isLive ? 'live' : ''} ${reveal && reveal.has(k.id) ? 'grow' : ''}"/>`);
+      if (isLive && pulse && app.classList.contains('glow')) pulses.push(`<path class="pulse" d="${d}" pathLength="1"/>`);
+      if (state.open.has(k.id)) visit(k, to);
+    }
+  };
+  visit(TREE, at(titleSlot));
+  svg.innerHTML = quiet.join('') + live.join('') + pulses.join('');
+}
+
+rowsEl.addEventListener('click', e => {
+  if (e.target.closest('.tool')) return;
+  const row = e.target.closest('.row');
+  if (!row) return;
+  const slot = e.target.closest('[data-kids]');
+  if (slot) {
+    const id = slot.dataset.node;
+    const wasOpen = state.open.has(id);
+    wasOpen ? state.open.delete(id) : state.open.add(id);
+    const find = n => n.id === id ? n : (n.kids || []).map(find).find(Boolean);
+    if (wasOpen && (ancestors(state.focus) || []).includes(id)) state.focus = id;
+    draw(wasOpen ? null : new Set(find(TREE).kids.map(k => k.id)), false);
+    return;
+  }
+  state.focus = row.dataset.id;
+  draw(null, true);
+});
+rowsEl.addEventListener('keydown', e => {
+  if ((e.key !== 'Enter' && e.key !== ' ') || !e.target.classList.contains('row')) return;
+  e.preventDefault();
+  const id = e.target.dataset.id;
+  state.focus = id;
+  draw(null, true);
+  rowsEl.querySelector(`[data-id="${id}"]`).focus();
+});
+$('glow').addEventListener('change', e => { app.classList.toggle('glow', e.target.checked); draw(null, e.target.checked); });
+
+$('kinds').innerHTML = [
+  [LEAF, 'Leaf', 'No children. Small dot, the same in every option.'],
+  [OPEN, 'Expanded', 'Has children, and they are showing below it. Larger dot, the same in every option.'],
+  [BULLETS[2].shut(14), 'Collapsed', 'Has children, but they are hidden. Click it to show them. This is the shape you are choosing.'],
+].map(([s, name, text]) => `<div class="kind">${svgB(s)}<p><strong style="font-weight:500">${name}.</strong> <span class="muted">${text}</span></p></div>`).join('');
+$('options').innerHTML = BULLETS.map(b => `<button class="opt" type="button" data-b="${b.id}" aria-pressed="${b === state.bullet}">
+  <strong>${b.name}</strong><small>${b.note}</small>
+  <div class="states"><span class="actual">${svgB(b.shut(14))}</span>${[3, 7, 14, 31].map(c => `<span class="big">${svgB(b.shut(c))}</span>`).join('')}</div>
+</button>`).join('');
+$('options').addEventListener('click', e => {
+  const btn = e.target.closest('.opt');
+  if (!btn) return;
+  state.bullet = BULLETS.find(b => b.id === btn.dataset.b);
+  document.querySelectorAll('.opt').forEach(o => o.setAttribute('aria-pressed', o === btn));
+  draw(null, false);
+});
+
+draw(null, false);
+new ResizeObserver(() => paint()).observe(outline);
+document.fonts && document.fonts.ready.then(() => paint());
+</script>

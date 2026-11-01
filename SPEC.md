@@ -80,7 +80,7 @@ Our claimed difference: Workflowy-grade editing with local data in an open forma
 
 ## 4. Information model and UI
 
-**The look is not final.** Thor and the implementers will agree the overall design style after this spec is reviewed and before UI work starts (§12.3). The rest of §4 fixes structure and behavior. Anything describing appearance is a starting point that the design talk may change, and it should change only theme tokens and component CSS, not behavior.
+**The look was agreed on 2026-10-31** (§12.2 row 57). `plan/reports/design-mockup.html` is the visual reference. Changing the look later should touch only theme tokens and component CSS, not behavior.
 
 ### 4.1 Global tree
 
@@ -118,20 +118,23 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 
 | State | Default glyph | Rule |
 | --- | --- | --- |
-| Collapsed, has children | `▸` | Clicking the glyph expands |
-| Expanded, has children | `▾` | Clicking the glyph collapses |
-| Leaf | `•` | |
+| Collapsed, has children | Lit strands: a spore with strands reaching right, each ending in an accent-colored tip | Clicking the glyph expands. Strands show the hidden bullets (all descendants): 2 up to 4, 3 up to 9, 4 up to 24, 5 from 25 |
+| Expanded, has children | Large spore (a slightly irregular dot) | Clicking the glyph collapses |
+| Leaf | Small spore (a slightly irregular dot) | |
 | Task, open / done | `☐` / `☑` after the bullet glyph | Native-feeling checkbox behavior; clicking toggles completion |
 | Heading style | Bold text, extra space above | |
 | Completed | Dimmed + strikethrough text; glyph unchanged | |
 | Selected (block selection) | `selection` token background on the whole row | |
 
-- Glyphs are defined in CSS (`content`) so a theme can replace them. They are never read as text by the editor.
+- Glyphs and icons are inline SVG in the light DOM, with classes on their parts, and each row exposes its state and strand count as attributes. A theme can recolor them or hide them and draw its own. They are never read as text by the editor.
+- A collapsed bullet also shows the hidden count as a dim number after its text.
 - Completion never replaces the bullet glyph, so a completed parent still shows whether it is collapsed.
 - No information is carried by color alone.
-- Each level indents by the `--indent` token. Faint indent guides are a setting, off by default. Past 8 levels of the current zoom, each further level indents by half as much, and the footer suggests zooming.
+- **Threads.** Ruled lines with a small rounded elbow run from each parent's bullet to its children, in the `--thread` color. The path from the zoom heading to the focused bullet is drawn in the accent color, so position is visible at a glance. Threads carry no information that isn't also in the indent and breadcrumbs. They draw in briefly when a bullet expands (motion token, off under `prefers-reduced-motion`).
+- **Glowing thread.** The `thread_glow` setting (§13, off by default) adds a soft glow to the lit path and a brief pulse along it when focus moves. The pulse is off under `prefers-reduced-motion`.
+- Each level indents by the `--indent` token. Past 8 levels of the current zoom, each further level indents by half as much, and the footer suggests zooming.
 - **Wrapped lines** continue under the start of the text, not under the glyph, so each bullet reads as one block.
-- **Focus:** in text editing, the focused bullet shows the caret and its glyph in the accent color; nothing else changes. Concealed markers follow this focus. In block selection no caret is shown.
+- **Focus:** in text editing, the focused bullet shows the caret, its glyph and the lit thread path in the accent color; the focused row may also show its row icons (§4.6). Concealed markers follow this focus. In block selection no caret is shown.
 
 ### 4.4 Theming
 
@@ -142,7 +145,7 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 - **Light DOM.** Web components render into the light DOM, so any selector in a theme can reach any part of the UI. Shadow DOM is not used: it would hide parts from themes and breaks text selection across browsers.
 - **Themes are files.** A theme is one `.css` file that overrides tokens in `@layer theme`, and may restyle components too. The app ships `light` and `dark` plus `auto` (follows `prefers-color-scheme`). Users add themes by dropping a file in `~/.config/hyphal/themes/`. The app reloads a theme when its file changes, without a page reload.
 - **`omarchy` theme.** When `~/.local/state/omarchy/current/theme/colors.toml` exists and `theme` is `auto`, the app maps that file's roles onto tokens (`background`, `foreground`, `accent`, `muted`, `selection`, the named colors and `mode`) and follows changes while running. Only hex colors and `mode` are accepted, so a theme file can't inject CSS. The file's path and format belong to Omarchy and may change, so a missing or unreadable file falls back to `auto` without an error.
-- **Fonts.** The default font tokens are `system-ui` for chrome and `ui-monospace, monospace` for code. `monospace` resolves through fontconfig on Linux, so Omarchy's font choice applies on the next load.
+- **Fonts.** The default font tokens are Literata for text and chrome, Fraunces for zoom and page headings, and `ui-monospace, monospace` for code. Literata and Fraunces are bundled with the app under the SIL Open Font License, so they load offline and are never fetched. Themes, including `omarchy`, change colors and keep these fonts unless they override the font tokens. `monospace` resolves through fontconfig on Linux, so Omarchy's font choice still applies to code on the next load.
 - **User overrides.** `~/.config/hyphal/user.css`, if present, loads in `@layer user` after any theme.
 - **Theme CSS is trusted as your own config.** It comes only from your config directory, never from the outline. The Content Security Policy (§9.3) still blocks remote loads, so a theme can't reach the network.
 - **Text colors** in bullets (§5.8) use eight named tokens (`--color-red`, …), so colored text follows the theme.
@@ -163,7 +166,22 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
 
 ### 4.6 Visual design
 
-The starting direction, subject to the design talk (§12.3): the outline should read like a calm page, not a dashboard.
+The direction is **Mycelium**: minimal and professional, with a unique identity drawn from the fungal network. The outline reads like a calm page in a field notebook, not a dashboard. The bundled `dark` theme is the primary look, mid-dark rather than near-black, tuned for long reading:
+
+| Token | `dark` value |
+| --- | --- |
+| `--bg` | `#2c2824` (peat) |
+| `--raise` | `#37322c` |
+| `--text` | `#eee6d8` |
+| `--muted` | `#b3a896` |
+| `--thread` | `#75695a` |
+| `--accent` | `#e8b25c` (chanterelle) |
+
+Body text is about 16.5 px at line height 1.5. The bundled `light` theme uses the same shapes and fonts, with colors chosen in P1-29.
+
+The identity lives in shapes, so it survives any theme: threads, spore bullets and icons use only theme colors.
+
+- **Icons.** A custom hand-drawn set in `internal/web/assets`: each icon is a recognizable shape drawn as one thread that ends in a small accent-colored tip. The set covers home, search, star, trash, history, page and commands, and grows with new features. No icon font or icon library.
 
 - **Centered reading column.** Text width is capped by the `--column` token (default about 90 characters; the `column_width` setting overrides it) and centered in wide windows. Breadcrumbs and status sit inside the same column.
 - **Inline formatting rendered, markers concealed.** `**bold**` shows as bold; the markers appear only on the bullet being edited, as in Obsidian's live preview (§5.8).
@@ -192,13 +210,14 @@ The starting direction, subject to the design talk (§12.3): the outline should 
   | `--match` | Filter and search matches |
   | `--highlight` | `==highlight==` text |
   | `--error`, `--warning` | Failed-write label and banners; read-only and restore banners |
-  | `--guide` | Optional indent guides |
+  | `--thread` | Threads between bullets |
+  | `--raise` | Focused row background, hover states |
   | `--color-*` | The eight text colors (§5.8) and tag chips |
 
   Size, spacing, font, radius, glyph and motion tokens are listed in `tokens.css`.
 - **Contrast.** Both bundled themes meet WCAG AA for text and muted text. A test checks this for `light` and `dark`.
 - **Overlays** are native `<dialog>` elements (palettes, help, backlinks), floating and centered, with a title and the accent border.
-- **Restraint.** No splash screen, toolbars or busy status bar. Breadcrumbs, the save dot and one footer row are all the chrome. Instant response is part of the look (§9.4).
+- **Restraint.** No splash screen, formatting toolbar or busy status bar. The chrome is breadcrumbs, the save dot, one footer row, a quiet icon strip in the header (search, stars, history, Trash, commands) and icons on the focused row (page, star, Trash). Icons appear once their feature exists. Every icon action also has a key, and the mouse is never required. Instant response is part of the look (§9.4).
 - **Reference screens** are part of the spec before Phase 1 ends: a laptop window, a full-screen ultrawide, a deep zoom, an active filter, and a light theme. Phase 1's exit gate includes a side-by-side review against Workflowy.
 
 ### 4.7 At home on the desktop
@@ -1065,7 +1084,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 32 | Sync moves | Moves carry parent and position together; a proven tree-move algorithm in Phase 5 | §7.6 |
 | 33 | Markdown | One GFM-style dialect for export, import, paste and the editor round trip | §7.5 |
 | 34 | CLI shape | Core verbs top-level, the rest grouped by noun; `--json` envelope and fixed exit codes | §10.2 |
-| 35 | Look | Comfortable density, no indent guides by default; semantic color tokens | §4.6 |
+| 35 | Look | Comfortable density; semantic color tokens. Threads replaced indent guides (row 57) | §4.6 |
 | 36 | Mirrors | Never; the outline stays a strict tree, and links, tags and saved searches cover multi-context items | §12.1 |
 | 37 | Cut and paste | Pasting the app's own last cut moves the bullets intact (IDs, pages, history) | §5.5 |
 | 38 | Page preview | None in the outline; zoom into the page to read it | §5.7 |
@@ -1086,13 +1105,13 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 53 | Page editor | Built-in editor moves to Phase 1, since the browser makes it cheap; position sync and split view stay in Phase 2 | §5.7 |
 | 54 | Mouse | Clicks and scrolling move to Phase 1 | §6.5 |
 | 56 | Drag-to-move | Native drag and drop in Phase 2, with every move still available from the keyboard | §6.5 |
+| 57 | Design style | Mycelium colors, Literata and Fraunces, hand-drawn thread icons, ruled threads with a lit focus path, Lit strands collapsed bullets, spore dots for expanded and leaf bullets, optional glowing thread, header and focused-row icons | §4.3, §4.6 |
 | 55 | Cut features | Glyph ASCII fallbacks, terminal matrix, kitty, tmux, OSC sequences, Bubble Tea stack, wrap-layout engine, `zoom_transition`, `glyphs`, `background`, `mouse` settings | §4, §6.4, §13 |
 
 ### 12.3 Still open
 
 **To settle before implementation resumes:**
 
-- **Design style.** Thor wants a unique style that doesn't look like a generic web app. Thor and the implementers agree the overall look after this spec is reviewed: typography, density, color, glyphs, motion, how far "calm page" carries over. The outcome updates §4.3, §4.6 and the default tokens.
 - **Spike checks not yet run by hand.** The real key matrix, real IME use, and the real `$EDITOR` terminal behavior (`plan/reports/p0-w1-web-ui.md`). The Phase 0 human cards cover them.
 
 **Other open items:**
@@ -1114,7 +1133,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 
 ### 12.4 Immediate next steps
 
-1. **Review this spec and the plan** together, then hold the design talk (§12.3).
+1. **Spec and plan reviewed, design talk held** (2026-10-31; §12.2 row 57).
 2. **Finish the storage foundations:** schema, commit with history, typing coalescing, the JSON round trip and crash injection (Phase 0 cards).
 3. **Web skeleton:** server, protocol and the outline web component, replacing `internal/webspike`.
 4. **Reference screens:** the five screens listed in §4.6, reviewed side by side with Workflowy under three themes, one of them light.
@@ -1132,7 +1151,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | `browser` | `"auto"` | `auto` (app window on a Chromium-family browser, else the default browser), or a command template with `{url}` | §4.7 |
 | `column_width` | `90` | Reading column cap, in characters | §4.6 |
 | `density` | `"comfortable"` | `comfortable` or `compact` | §4.6 |
-| `indent_guides` | `false` | Faint indent guides | §4.3 |
+| `thread_glow` | `false` | Soft glow on the lit thread path, with a brief pulse when focus moves | §4.3 |
 | `footer` | `true` | Footer key hints | §4.5 |
 | `split_view_min_width` | `0` (off) | Open pages in split view at or above this window width, in CSS pixels | §5.7 |
 | `[tag_colors]` | — | Per-tag color overrides | §5.9 |
