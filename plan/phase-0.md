@@ -4,12 +4,12 @@ Spec: §11 row 0, §12.4. Exit gate: **export and import are identical; a crash 
 
 Phase 0 code is production code, not throwaway: the leaf packages, the store, the core tree and the web skeleton built here are the foundations of Phase 1. "Spike" cards also produce measurement reports in `plan/reports/`.
 
-**Done:** P0-01 to P0-08, plus spike P0-W1 (`plan/reports/p0-w1-web-ui.md`). **Withdrawn:** P0-17 (wrap engine; the browser does layout). P0-18, P0-19 and P0-23 were rewritten for the web UI.
+**Done:** P0-01 to P0-09, plus spike P0-W1 (`plan/reports/p0-w1-web-ui.md`). **Withdrawn:** P0-17 (wrap engine; the browser does layout). P0-18, P0-19 and P0-23 were rewritten for the web UI.
 
 ## Dependency graph
 
 ```text
-Done: P0-01 · P0-02 ids · P0-03 fracindex · P0-04 textfold · P0-05 driver · P0-06 store open/schema · P0-07 model · P0-08 commit · P0-W1 web spike
+Done: P0-01 · P0-02 ids · P0-03 fracindex · P0-04 textfold · P0-05 driver · P0-06 store open/schema · P0-07 model · P0-08 commit · P0-09 load+tree · P0-W1 web spike
 
                                         P0-08 commit+history ─┬─ P0-12 JSON export/import ─ P0-14 round-trip props
                                                               ├─ P0-09 load+tree ─ P0-10 basic planners ─┬─ P0-11 typing seal
@@ -167,7 +167,7 @@ Acceptance criteria:
 
 ---
 
-### P0-09 · Store `LoadAll` and core `Tree`
+### P0-09 · Store `LoadAll` and core `Tree` · Done
 Type: impl · Packages: `internal/store`, `internal/core` · Depends on: P0-08 · Spec: §7.3, §9.3 · CONTRACTS §8
 
 Deliverables: `store.LoadAll`, `store.LoadPages`, `store.Page`, reading through `db.readTx` so they work on a read-only database and don't wait for writers; `core.NewTree`, accessors (ARCHITECTURE §4.3), `Tree.Apply(cs)` for every op kind (mirror of store semantics on the in-memory tree, including version bumps and `updated_at` so the tree equals a reload), `Tree.Check()` implementing CONTRACTS §8 items 1–9.
@@ -277,7 +277,7 @@ Acceptance criteria:
 - AC2 `Revealed()` text equals the source byte-for-byte for random input → `FuzzRevealedIdentity`.
 - AC3 `Plain("**bold** text")` = `bold text` with a correct offset map; `[label](url)` → `label` → `TestPlain`.
 - AC4 Parser never panics and terminates in linear-ish time (input up to 10 KB under 10 ms) → `FuzzParse`.
-- AC5b `store.hasLeadingMarker` agrees with `ConvertLeadingMarker` on the AC5 table (A-003; an exported test helper or a shared table is fine) → `TestConvertLeadingMarker`.
+- AC5b `store.HasLeadingMarker` agrees with `ConvertLeadingMarker` on the AC5 table (A-003; an exported test helper or a shared table is fine) → `TestConvertLeadingMarker`.
 - AC5 Leading marker conversion table: `[ ] a` → task; `[x] a` / `[X] a` → completed task; `## a` → heading; `[ ] ## a` → task + heading (D-035); `[ ]a` and `##a` unchanged; `### a` unchanged → `TestConvertLeadingMarker`.
 - AC6 `WrapSelection` twice with `*` makes bold and keeps the selection on the inner text → `TestWrapSelection`.
 - AC7 `SetColor` replaces an existing outer color and leaves inner styles → `TestSetColor`.

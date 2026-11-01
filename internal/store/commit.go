@@ -125,10 +125,10 @@ func validSource(s string) bool {
 	return ok && name != ""
 }
 
-// hasLeadingMarker reports whether text starts with a marker that bullet text
+// HasLeadingMarker reports whether text starts with a marker that bullet text
 // may never start with (§5.4). The store can't import markup; P0-16 tests that
 // this agrees with markup.ConvertLeadingMarker (A-003).
-func hasLeadingMarker(text string) bool {
+func HasLeadingMarker(text string) bool {
 	for _, marker := range []string{"[ ] ", "[x] ", "[X] ", "## "} {
 		if strings.HasPrefix(text, marker) {
 			return true
@@ -141,7 +141,7 @@ func checkText(text string) error {
 	if strings.ContainsAny(text, "\n\r") {
 		return invalidf("text has a line break")
 	}
-	if hasLeadingMarker(text) {
+	if HasLeadingMarker(text) {
 		return invalidf("text starts with a leading marker: %q", text)
 	}
 	return nil
