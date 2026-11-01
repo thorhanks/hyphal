@@ -39,7 +39,7 @@ Stop for the human. Afterwards: write `D-1xx` entries and update P2-04…P2-06, 
 Type: decision · Spec: §10.1, §12.3 (Phase 2 · Node links)
 
 Proposal `plan/proposals/p2-02-links.md`:
-1. Stored form of `[[…]]` that stays readable in a SQLite browser and survives renames (option A: `[[k3j9x2m4q7tb]]` with display text resolved at render; option B: `[[Display text|k3j9x2m4q7tb]]` with display refreshed on render and rewritten lazily; option C: `[[Display text^k3j9x2m4q7tb]]`). Consider: the markup grammar, Plain()/search (§6.2 "links shown as their display text"), CLI output, editor round trip and copy.
+1. Stored form of `[[…]]` that stays readable in a SQLite browser and survives renames (option A: `[[k3j9x2m4q7tb]]` with display text resolved at render; option B: `[[Display text|k3j9x2m4q7tb]]` with display refreshed on render and rewritten lazily; option C: `[[Display text^k3j9x2m4q7tb]]`). Consider: the markup grammar, Plain()/search (§6.2 "links shown as their display text"), CLI output and copy.
 2. Obsidian-style Markdown export when links target nodes, not files (anchor to the page file if the target has a page? heading anchor? plain text with `^id` block reference?).
 3. Links to trashed and purged nodes: rendering (struck/muted?), `o` behavior, export.
 4. Format of Copy link to node (`[[…]]` text for pasting inside the app; `hyphal://`-free).

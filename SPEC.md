@@ -18,7 +18,7 @@ We are building a local-first infinite outliner, inspired by Workflowy, for Linu
 2. **Thought-first editing.** Capturing and rearranging bullets needs no mode switch. Commands that need single keys use a lightweight block-selection state, not Vim modes. Block selection and page view/edit are modes in the strict sense; they are kept few and shallow: Esc always backs out one level, and Enter always returns to typing.
 3. **Your data is never locked in.** One SQLite file with a plain, documented schema, readable by standard tools. Export to Markdown, JSON or OPML at any time; a JSON export restores the whole outline, and its history too when exported with it.
 4. **Nothing is lost silently.** Every change is recorded in history, deletes go to the Trash, and snapshots protect against a damaged file.
-5. **Every change is attributable and reversible.** History records whether a change came from the UI, the CLI, the editor round trip or an agent, and any change set can be reverted.
+5. **Every change is attributable and reversible.** History records whether a change came from the UI, the CLI or an agent, and any change set can be reverted.
 6. **Local-first and private.** No account, cloud dependency or remote connection. The only network use is one server bound to the loopback interface, and the only client is your own browser. The page loads nothing from anywhere else.
 7. **Native web, no framework.** The UI is native web components, HTML, CSS and JavaScript using modern browser features only. No external frontend library enters the UI without Thor's explicit approval, and there is no required build step.
 8. **Easily themed.** Every visual value is a CSS custom property, and a theme is one small CSS file (§4.4). Keep every action available from the keyboard.
@@ -33,7 +33,7 @@ We are building a local-first infinite outliner, inspired by Workflowy, for Linu
 
 1. **Session.** Launch from the app launcher or a shell and type immediately. Enter adds bullets, Tab nests them. Collapse a project, zoom into a task, filter for a word, close the window.
 2. **Quick capture.** From any shell (`hyphal add "Call the dentist"`) or a Hyprland keybind (`hyphal capture --window`), text lands in the Inbox node without opening the full outline.
-3. **Edit in `$EDITOR`.** Press a key to open the current subtree as Markdown in `$EDITOR` (Neovim on Omarchy), in a terminal window. Save and quit; the changes apply as one undoable step.
+3. **Write at length.** Press a key to open a bullet's page and write Markdown right in the app. Everything is edited in Hyphal; no external editor is involved.
 4. **Recover.** A week later, restore a deleted branch from the Trash, or revert one bad change made by a script without touching anything else.
 5. **Leave.** `hyphal export --format markdown` produces a readable outline that works anywhere, at any time.
 
@@ -159,7 +159,7 @@ Enter new · Tab indent · Esc select · Ctrl+P commands · F1 help
   3. The outline (or page, or full-screen view), which scrolls.
   4. **Footer row,** fixed to the bottom of the window. It shows one of three things, in priority order: a message, the filter query while a filter is active (`/ tooltip · 12 matches`), or contextual key hints.
 - **Footer hints:** contextual keys for the current state; the `footer` setting turns them off (messages and the filter still use the row). F1 (or `?` in block selection) opens the full help overlay (§4.8).
-- **Messages** are the app's only transient feedback; nothing floats and nothing times out. A message replaces the footer's content and stays until the next keypress, then the footer returns to what it showed before. Messages confirm undoable actions (`Moved "Design notes" and 214 descendants to Trash · Ctrl+Z undoes`), summarize an editor round trip, say where a restore landed, report a clipboard failure, and explain a no-op key ("hints" elsewhere in this spec are messages). A newer message replaces an older one. The footer is an ARIA live region.
+- **Messages** are the app's only transient feedback; nothing floats and nothing times out. A message replaces the footer's content and stays until the next keypress, then the footer returns to what it showed before. Messages confirm undoable actions (`Moved "Design notes" and 214 descendants to Trash · Ctrl+Z undoes`), say where a restore landed, report a clipboard failure, and explain a no-op key ("hints" elsewhere in this spec are messages). A newer message replaces an older one. The footer is an ARIA live region.
 - **Banners:** persistent, for failed writes, a lost connection to the local server, a database opened read-only, a restore that just ran, or an invalid config. A banner stays until its cause is gone; an informational one (a restore that just ran) clears on the next change to the outline.
 - **Views on demand:** Trash (§4.8) and History open as temporary full-page views, not panels. No sidebar, no daily journal.
 - **First run:** the first time the UI opens a database (a flag in `meta`), it adds a short sample outline that teaches the core keys, unless the outline already holds anything besides an Inbox (for example after an import). Databases created by the CLI start with only Home, so scripts and agents get a clean outline.
@@ -227,7 +227,7 @@ Omarchy is *omakase*: one beautiful, opinionated default, keyboard first, themed
 **Omakase defaults**
 
 - One carefully tuned default look and keymap. Settings exist for real needs (column width, density, keymap), not for every pixel; everything else is a theme.
-- No settings screen. "Edit settings" in the command palette opens the commented `config.toml` in `$EDITOR` and reloads it on save.
+- No settings screen. "Edit settings" in the command palette opens the commented `config.toml` in the built-in plain-text editor and reloads it on save.
 
 **Shared keyboard conventions**
 
@@ -332,7 +332,7 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 - **Complete / reopen** toggles a node's completion (storage rule: §7.2). Completed nodes stay in place; a toggle hides them. On a selection with mixed state, any open bullet means "complete all", otherwise "reopen all". When a newly completed bullet hides, the cursor moves to the next visible bullet and a message offers undo.
 - **Editing under a filter:** a bullet you create or edit stays visible until the filter changes, even if it doesn't match. Indent and move use the real tree, including hidden bullets; the moved bullet stays visible with its ancestors.
 - **Tasks:** toggle task makes a bullet a task, shown with a checkbox (§4.3). Completing a task checks its box.
-- **Leading markers convert.** Typing `[ ] ` at the start of a bullet makes it a task, `[x] ` a completed task, and `## ` a heading-style bullet; the marker is removed. Text set by paste, import, the editor round trip or `hyphal edit --text` follows the same rule, so stored bullet text never starts with a marker and the Markdown dialect needs no escape for them.
+- **Leading markers convert.** Typing `[ ] ` at the start of a bullet makes it a task, `[x] ` a completed task, and `## ` a heading-style bullet; the marker is removed. Text set by paste, import or `hyphal edit --text` follows the same rule, so stored bullet text never starts with a marker and the Markdown dialect needs no escape for them.
 - **Duplicate** copies the subtree as the next sibling, with new IDs, pages, completion, task and heading state. Stars are not copied, and links inside the copy still point to their original targets.
 - **Heading style:** toggle heading makes a bullet a section-like heading (§4.6). It changes only the look, never the structure.
 - **Move to…** opens a fuzzy parent picker over all node text, built on the command palette (Phase 1). From Phase 2 it uses the jump palette, with starred locations first. This is how subtrees cross long distances.
@@ -351,7 +351,7 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 
 ### 5.6 Undo and redo
 
-- **Undo is per session.** The server keeps an undo stack in memory for the editing tab. Each step is one change set you started from the UI, including `$EDITOR` round trips and page saves made from it. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the UI clears the redo steps. The server exiting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
+- **Undo is per session.** The server keeps an undo stack in memory for the editing tab. Each step is one change set you started from the UI, including page saves made from it. Undo applies the step's inverse as a new change set whose `undo_of` points at it; redo applies it again. Any new change from the UI clears the redo steps. The server exiting clears the stack; older changes are recovered from the Trash, with `hyphal revert`, or from the History view (Phase 2).
 - Changes from the CLI or an agent are never on the stack, so Ctrl+Z never undoes something you didn't do; they are reverted with `hyphal revert`.
 - If a later change from another source touched the same fields, undo follows the revert rule: those fields are skipped and reported (§8.2).
 - Typing coalesces into one step per node; the step closes when the typing operation seals (§7.3). Ctrl+Z first seals any open typing, so the typing just done is the step undone.
@@ -362,7 +362,7 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
 - **Every bullet stays one line.** Long-form writing lives on an optional **page** attached to the bullet: a full Markdown document with headings, lists, code blocks, quotes and tables, as long as you like.
 - **Page zoom:** `p` in block selection opens the bullet's page in view mode; on a bullet without one, it opens an empty page in edit mode. A page saved empty is not created; clearing an existing page's text deletes the page, as one undoable change. Esc from view mode returns to the outline in block selection on the page's bullet. Normal zoom (`z`) still shows only the bullet's children.
 - **Title:** the bullet's text is the page title. It is not stored in `pages.markdown`; view mode renders it as the page heading, with inline markup.
-  - In `$EDITOR` and in edit mode, the title appears as a first line `# Title`. On save, the first line is the title if it is an H1 (`# …`): changing it renames the bullet. If the first line is not an H1, the bullet's text is unchanged and the whole file is the page. (So deleting the title line of a page whose body starts with `# Intro` renames the bullet to "Intro"; undo reverses it.)
+  - In edit mode, the title appears as a first line `# Title`. On save, the first line is the title if it is an H1 (`# …`): changing it renames the bullet. If the first line is not an H1, the bullet's text is unchanged and the whole file is the page. (So deleting the title line of a page whose body starts with `# Intro` renames the bullet to "Intro"; undo reverses it.)
   - **Delete page** (command palette) removes the page from a bullet, as one undoable change.
 - **Indicator:** a dim page marker follows the bullet's text (§4.6). The outline never shows page content; zoom into the page to read it.
 - **Two modes, no live preview.** Editing inside rendered output is the hardest and buggiest part of a Markdown editor, so pages separate reading from writing:
@@ -374,7 +374,7 @@ Identity follows the merge rule above: the current bullet keeps its ID, and the 
   - The breadcrumb continues with a page marker and the mode: `Home › Projects › ControllerCraft › ≡ view`.
   - Same centered reading column and theme as the outline.
 - **Editing, staged:**
-  - **Phase 1:** view mode and the built-in edit mode. `e` opens the built-in editor and `E` opens `$EDITOR` (Neovim on Omarchy). Each edit saves as one undoable change set.
+  - **Phase 1:** view mode and the built-in edit mode. `e` opens the built-in editor. Each edit saves as one undoable change set.
   - **Phase 2:** mode switching with position sync, and split view.
   - Live preview is not planned. Concealed markers remain only on single-line bullets in the outline (§5.8), where they are simple.
 - **A page belongs to its bullet:** it moves with it, goes to the Trash and comes back with it, and is copied by Duplicate.
@@ -440,22 +440,8 @@ Formatting uses Markdown-style markers, typed directly or wrapped around selecte
 - A match inside a page keeps its bullet visible with the page marker highlighted, and shows the matching line dimmed beneath it.
 - Saved searches arrive in Phase 3 (§10.1).
 
-### 6.3 External editor and quick capture
+### 6.3 Quick capture
 
-- **Edit in `$EDITOR`** (Phase 1): the server writes the focused bullet's subtree (or the selection, or the whole zoom when the zoom heading is focused) to a temp Markdown file in the shared dialect (§7.5) and opens it through the `editor.command` setting, which by default runs `$EDITOR` in a new terminal window (`xdg-terminal-exec` on Linux, a Terminal.app script on macOS). The outline stays visible with a `Editing in $EDITOR…` message and keeps working. Each line carries its node's ID as a ` ^id` suffix so edits map back.
-- **When the edit ends.** The server applies the file when the command exits. Some terminals return at once because an existing instance opens the window, so the default command wraps the editor and signals completion through a marker file rather than trusting the terminal's exit. Phase 0 tests this with the real terminals in §6.4's matrix. A `Finish editing` button and palette command apply the file manually as a fallback.
-- The file always contains every live descendant, whatever is collapsed, hidden by Show / hide completed, or hidden by an active filter. A line missing from the file therefore always means "delete this node", never "it wasn't shown".
-- On exit, the file is parsed and diffed against the subtree. Everything applies as one change set with source `editor`, undoable with Ctrl+Z, and a message summarizes it ("3 changed, 2 new, 1 to Trash").
-  - Changed text, task, completion or heading markers update their nodes. Order and indentation in the file become the new structure, so moving lines moves nodes.
-  - Lines without an ID become new nodes. Removed lines move to the Trash, with their pages, stars and history intact.
-  - Deleting a parent line but keeping its children: the children take the place the indentation in the file gives them.
-  - A duplicated ID: the first line keeps the node; later copies become new nodes.
-  - A stripped ID makes the line a new node and sends the old one to the Trash. The summary message makes this visible, and undo reverses it.
-  - Only a trailing ` ^` followed by a valid ID (§7.2) is an ID; any other `^` is text.
-- Pages are not part of the file. Each bullet keeps its page through its ID; pages are edited on their own (§5.7).
-- The temp file lives in a private directory (`$XDG_RUNTIME_DIR/hyphal/`, or `hyphal/tmp/` in the data directory, mode `0700`) and is created `0600`. Editors may keep their own swap and undo files elsewhere; the docs say so.
-- If a bullet in the subtree changes while the editor is open, in the UI or from another connection, the concurrency rule of §7.3 applies on save: your edit lands after the other change, which stays revertible, and the message says so.
-- If the file can't be parsed, nothing is applied: the temp file is kept and a banner offers to reopen it.
 - **Quick capture** (Phase 1): `hyphal add "text" [--under <node>]` (§10.2) appends to the Inbox node by default, in its own transaction. The Inbox is a top-level node named `Inbox`, created on first use; its ID is stored in `meta`, so it can be renamed or moved freely and capture follows it. If the Inbox is in the Trash or has been purged, capture creates a new top-level `Inbox`, points `meta` at it, and says so; a trashed old Inbox stays in the Trash untouched. A running server notices the change through SQLite's `PRAGMA data_version` and refreshes open tabs.
 
 ### 6.4 Keymap and browser support
@@ -525,7 +511,6 @@ This section is the only place key bindings are defined. Other sections name com
 | Ctrl+X | Cut: copy, then delete to the Trash |
 | `p` | Open page |
 | `o` | Follow the bullet's link or tag; with several, a picker lists them. A URL opens in a new browser tab |
-| `e` | Open subtree in `$EDITOR` |
 | `D` | Duplicate subtree |
 | `h` | Show / hide completed |
 | `c` | Color picker |
@@ -548,7 +533,6 @@ This section is the only place key bindings are defined. Other sections name com
 | Tab / Shift+Tab | Focus next / previous link |
 | Enter | Follow the focused link; with no link focused, edit |
 | `e` | Edit in the built-in editor |
-| `E` | Open in `$EDITOR` |
 | `s` (Phase 2) | Toggle split view |
 | Esc | Back to the outline, in block selection on the page's bullet |
 
@@ -666,7 +650,7 @@ CREATE INDEX nodes_in_trash   ON nodes(deleted_at) WHERE deleted_at IS NOT NULL;
 -- change_sets and ops: see §8.2
 ```
 
-- **IDs** are random and permanent. They are what the CLI, links and the editor round trip use.
+- **IDs** are random and permanent. They are what the CLI and links use.
 - **Ordering** uses fractional index strings, so moving or reordering a node rewrites one row.
 - **Completion:** `is_task` marks an open task (`[ ]`); `completed_at` marks completion for any node. Reopening clears `completed_at` and keeps `is_task`, so a plain bullet never turns into a task by accident.
 - **View state** (collapse) and **UI state** (show/hide completed, the current zoom, the cursor per zoom, palette recents) are per device and excluded from history: folding never creates undo steps. Both are included in JSON export so a restore brings back the same view. The filter is never persisted.
@@ -687,7 +671,7 @@ CREATE INDEX nodes_in_trash   ON nodes(deleted_at) WHERE deleted_at IS NOT NULL;
 - WAL mode with `synchronous=FULL`. The extra cost is negligible at this write rate.
 - The server keeps an in-memory tree for the UI; all writes go through `core` to `store`.
 - The CLI opens its own connection with a busy timeout and doesn't need the server. The server polls `PRAGMA data_version` about every 500 ms; when another connection has written, it reloads the whole tree on its worker and keeps each tab's zoom, cursor and selection by node ID. Unsealed typing survives the reload and still commits afterwards, under the concurrency rule below. Incremental reloading is a later optimization if ever needed.
-- **Concurrent edits to one node.** Every write bumps the node's `version`. If another connection changes a node while the server holds unsealed typing on it, the user's typing is never dropped: it commits as a new change set after the other change, which stays in history and can be reverted, and a message says so. A CLI or agent that must not overwrite newer work passes `--if-version <n>` and gets a conflict error instead. The same rule applies to a page open in `$EDITOR` while `hyphal page set` runs.
+- **Concurrent edits to one node.** Every write bumps the node's `version`. If another connection changes a node while the server holds unsealed typing on it, the user's typing is never dropped: it commits as a new change set after the other change, which stays in history and can be reverted, and a message says so. A CLI or agent that must not overwrite newer work passes `--if-version <n>` and gets a conflict error instead. The same rule applies to a page open in the built-in editor while `hyphal page set` runs.
 
 ### 7.4 Migrations
 
@@ -710,7 +694,7 @@ CREATE INDEX nodes_in_trash   ON nodes(deleted_at) WHERE deleted_at IS NOT NULL;
 - **Scheduled export** (Phase 2) is an optional setting: Markdown or JSON, daily or on quit, into a folder you choose (for example a Git repo), keeping the last N exports. There is no daemon: a daily export is due when the last one is more than 24 hours old, checked at launch, at quit and on the server's timer. `hyphal export --scheduled` runs it from a systemd timer, launchd or cron.
 - CI checks that database → JSON → database is identical: every exported field is equal, including IDs, positions, timestamps, pages, stars and view state, and history when exported with `--history`.
 
-**Markdown dialect.** Export, import, multi-line paste (§5.5) and the editor round trip (§6.3) share one dialect, close to GitHub-flavored Markdown:
+**Markdown dialect.** Export, import and multi-line paste (§5.5) share one dialect, close to GitHub-flavored Markdown:
 
 ```markdown
 - Plain bullet
@@ -722,9 +706,9 @@ CREATE INDEX nodes_in_trash   ON nodes(deleted_at) WHERE deleted_at IS NOT NULL;
 ```
 
 - Bullet text never starts with `[ ] `, `[x] ` or `## ` (§5.4), so those markers are unambiguous.
-- Inline markup is written as stored (§5.8). Export converts color tags to `<span style="color: …">`; the editor round trip and copy (§5.5) keep them as typed.
-- The ` ^id` suffix is written by the editor round trip and by `hyphal export --ids`. Only the editor round trip maps IDs back to existing nodes; Markdown import always creates new nodes and ignores the suffix.
-- A completed bullet that is not a task exports as `[x]` and re-imports as a completed task. This small loss is documented; JSON and the editor round trip (through `^id`) keep it exact.
+- Inline markup is written as stored (§5.8). Export converts color tags to `<span style="color: …">`; copy (§5.5) keeps them as typed.
+- The ` ^id` suffix is written only by `hyphal export --ids`. Markdown import always creates new nodes and ignores the suffix.
+- A completed bullet that is not a task exports as `[x]` and re-imports as a completed task. This small loss is documented; JSON keeps it exact.
 - Import accepts any consistent indentation (spaces or tabs) and `-`, `*`, `+` or numbered list markers. Lines that aren't list items become bullets.
 
 **Pages in exports:** Markdown export writes each page as its own `.md` file in a `pages/` folder, and the outline links to it. File names are a slug of the bullet text (lowercase letters, digits and hyphens, at most 50 characters) plus the node ID, so they never collide. The result reads much like an Obsidian vault. JSON export includes pages in full; OPML puts them in `_note`.
@@ -801,7 +785,7 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 
 - **Current state is authoritative;** history is a record beside it, written in the same transaction. Nothing is rebuilt by replay.
 - **Before and after values** make every operation reversible by applying its inverse.
-- **Change sets** group the operations of one action: a subtree move, a CLI command, an editor round trip. They are the unit of undo, revert and "what did this agent do?".
+- **Change sets** group the operations of one action: a subtree move, a CLI command, a page save. They are the unit of undo, revert and "what did this agent do?".
 - **Coalescing:** consecutive edits to one node's text form a single operation, written once when it seals (§7.3) and never changed.
 - **Append-only:** history is never rewritten, except by explicit erasure: `hyphal history purge` and Forget node (§8.4).
 - **Revert** of an older change set applies its inverses to fields not changed since. Any skipped fields are reported, never overwritten.
@@ -854,7 +838,7 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 | Markdown | goldmark | Pages rendered to sanitized HTML on the server, with source positions for mode switching |
 | Syntax highlighting | chroma | Code blocks as CSS classes, colored by theme tokens |
 | Fuzzy matching | A Go fuzzy-finder library such as `sahilm/fuzzy` | Jump and command palettes, on the server |
-| Import / export | `encoding/json`, `encoding/xml`, small list parser | JSON, OPML, Markdown; the parser also serves the editor round trip |
+| Import / export | `encoding/json`, `encoding/xml`, small list parser | JSON, OPML, Markdown |
 | Config | TOML (`pelletier/go-toml/v2`) | Platform paths per §7.1 |
 | Browser tests | Playwright (development only, never shipped) | Approved by Thor. Runs under Node, pinned in `mise.toml` |
 | Distribution | GoReleaser | Homebrew tap for macOS, AUR package for Arch and Omarchy |
@@ -926,7 +910,6 @@ Targets are checked with generated databases: as absolute numbers on fixed bench
 - **History tests:** random sequences of operations followed by undo-all restore the original state; reverting any single change set leaves all other changes intact.
 - **Crash injection:** kill the process at random points during editing; the database passes `PRAGMA integrity_check` and loses at most the unsealed typing (§7.3).
 - **Migration tests:** a fixture database from every past schema version migrates cleanly, with a snapshot taken first.
-- **Editor round trip:** scripted edits to the temp file (rename, reorder, delete, add, malformed lines) apply exactly as expected, or not at all.
 - **Import tests:** real Workflowy OPML and Markdown exports from Logseq and Obsidian import without loss.
 - **Parser fuzzing** with Go's built-in fuzzing for the inline-markup parser, the list importer and OPML.
 - **Session tests:** Go tests drive a server session through the protocol without a browser: actions in, rows, cursor and messages out.
@@ -941,7 +924,7 @@ Targets are checked with generated databases: as absolute numbers on fixed bench
 The app will be built entirely by AI coding agents, working from a phased implementation plan derived from this spec. The spec and repository follow rules that make that reliable:
 
 - **Acceptance criteria per feature,** written as observable behavior ("Backspace on an empty bullet with children does nothing and shows a hint"), each mapped to at least one automated test.
-- **No manual verification steps.** Every behavior is checkable automatically: rules through `go test`, UI through browser tests, data through the CLI's `--json` output, safety through crash and round-trip tests. The human checkpoints are listed explicitly and are not acceptance criteria for agents: visual review (§4.6), the hands-on key matrix (§6.4), real `$EDITOR` terminals (§6.3), the comparison-set evaluation (§3), and the Phase 1 week of daily use (§11).
+- **No manual verification steps.** Every behavior is checkable automatically: rules through `go test`, UI through browser tests, data through the CLI's `--json` output, safety through crash and round-trip tests. The human checkpoints are listed explicitly and are not acceptance criteria for agents: visual review (§4.6), the hands-on key matrix (§6.4), the comparison-set evaluation (§3), and the Phase 1 week of daily use (§11).
 - **The CLI is the agents' test harness.** Agents create outlines, run commands and inspect results through the same CLI users get (§10.2), which is why it ships in Phase 1.
 - **One package per task where possible.** The plan hands agents work along package boundaries (`core`, `store`, `server`, `web`, `cli`) with stable interfaces between them.
 - **Golden files are reviewed, not regenerated blindly.** A changed golden must be explained in the commit message.
@@ -1031,7 +1014,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 
 ### 12.1 Non-goals
 
-- No editing of the data outside the app. Exports are copies; the `$EDITOR` round trip is the supported way to edit with another tool.
+- No editing of the data outside the app. Exports are copies, and all editing happens in the app, or through the CLI for scripts and agents.
 - No live sync through Git, Syncthing or cloud folders.
 - No `@person` mentions and no board (kanban) view in V1.
 - No mirrors (one bullet shown live in two places). Every node has exactly one parent; links, tags and saved searches cover the need.
@@ -1064,7 +1047,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 12 | Theme | CSS custom-property tokens in cascade layers; a theme is one CSS file; light DOM; Omarchy's `colors.toml` followed live when present | §4.4 |
 | 13 | Tasks | `is_task` plus `completed_at`; exported as checkboxes | §7.2 |
 | 14 | Search | In-memory substring scan, no index; filter in P1, jump palette and operators in P2 | §6.2 |
-| 15 | External editing | Temp-file round trip only | §6.3 |
+| 15 | External editing | None; cut in row 58 | §12.2 |
 | 16 | Configuration | XDG paths, TOML, explicit `--db` | §7.1 |
 | 17 | Long-form content | Bullets stay one line; an optional Markdown page per bullet, opened with page zoom. Replaces notes | §5.7 |
 | 18 | Language and UI stack | Go server with native web components, HTML, CSS and JS; no frontend libraries without approval; no build step; pure-Go SQLite | §9.1 |
@@ -1076,13 +1059,13 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 24 | Root and Inbox | A fixed Home root; a top-level Inbox found by ID | §4.1, §6.3 |
 | 25 | Keymap | One authoritative table per context; every everyday bullet command has a block-selection key, rare ones are palette-only; no browser-reserved keys; `Ctrl` means Cmd on macOS, native text keys stay native; Esc never zooms out; typing never leaves block selection | §6.4 |
 | 26 | Overlays | Backlinks and palettes are floating overlays; no side panes | §4.7 |
-| 27 | Undo scope | Per-session stack of UI-started changes, including `$EDITOR` round trips; CLI and agent changes are reverted | §5.6 |
+| 27 | Undo scope | Per-session stack of UI-started changes; CLI and agent changes are reverted | §5.6 |
 | 28 | Identity | Split keeps the ID on the first half; merges keep the earlier bullet and retarget stars and links | §5.2–5.3a |
 | 29 | Concurrency | Per-node versions; UI typing is never dropped; `--if-version` for agents | §7.3 |
 | 30 | Trash restore | Per deletion, to the original position, else the nearest surviving ancestor | §8.3 |
 | 31 | History policy | Append-only, ops written once when sealed; no compaction; manual purge | §8.2, §8.4 |
 | 32 | Sync moves | Moves carry parent and position together; a proven tree-move algorithm in Phase 5 | §7.6 |
-| 33 | Markdown | One GFM-style dialect for export, import, paste and the editor round trip | §7.5 |
+| 33 | Markdown | One GFM-style dialect for export, import and paste | §7.5 |
 | 34 | CLI shape | Core verbs top-level, the rest grouped by noun; `--json` envelope and fixed exit codes | §10.2 |
 | 35 | Look | Comfortable density; semantic color tokens. Threads replaced indent guides (row 57) | §4.6 |
 | 36 | Mirrors | Never; the outline stays a strict tree, and links, tags and saved searches cover multi-context items | §12.1 |
@@ -1106,13 +1089,14 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | 54 | Mouse | Clicks and scrolling move to Phase 1 | §6.5 |
 | 56 | Drag-to-move | Native drag and drop in Phase 2, with every move still available from the keyboard | §6.5 |
 | 57 | Design style | Mycelium colors, Literata and Fraunces, hand-drawn thread icons, ruled threads with a lit focus path, Lit strands collapsed bullets, spore dots for expanded and leaf bullets, optional glowing thread, header and focused-row icons | §4.3, §4.6 |
+| 58 | External editor | Cut the `$EDITOR` round trip: all editing happens in the app. Edit settings uses the built-in plain-text editor | §4.7, §5.7 |
 | 55 | Cut features | Glyph ASCII fallbacks, terminal matrix, kitty, tmux, OSC sequences, Bubble Tea stack, wrap-layout engine, `zoom_transition`, `glyphs`, `background`, `mouse` settings | §4, §6.4, §13 |
 
 ### 12.3 Still open
 
 **To settle before implementation resumes:**
 
-- **Spike checks not yet run by hand.** The real key matrix, real IME use, and the real `$EDITOR` terminal behavior (`plan/reports/p0-w1-web-ui.md`). The Phase 0 human cards cover them.
+- **Spike checks not yet run by hand.** The real key matrix and real IME use (`plan/reports/p0-w1-web-ui.md`). The Phase 0 human cards cover them.
 
 **Other open items:**
 
@@ -1137,7 +1121,7 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 2. **Finish the storage foundations:** schema, commit with history, typing coalescing, the JSON round trip and crash injection (Phase 0 cards).
 3. **Web skeleton:** server, protocol and the outline web component, replacing `internal/webspike`.
 4. **Reference screens:** the five screens listed in §4.6, reviewed side by side with Workflowy under three themes, one of them light.
-5. **Key matrix and `$EDITOR`:** record which bindings arrive in each browser and window type (§6.4), and how each terminal behaves (§6.3).
+5. **Key matrix:** record which bindings arrive in each browser and window type (§6.4).
 6. **Workflowy import:** run a real Workflowy OPML export through the importer and list anything lost, including how mirrors appear and whether they can be detected.
 
 ## 13. Configuration reference
@@ -1162,6 +1146,5 @@ Future and exploratory, with no phase: direct Wi-Fi sync, collaboration, graph v
 | `export.when` | `"daily"` | `daily` or `quit` | §7.5 |
 | `export.dir` | `<data dir>/exports` | Scheduled export folder | §7.5 |
 | `export.keep` | `10` | Scheduled exports kept | §7.5 |
-| `editor.command` | Runs `$EDITOR` in a new terminal via `xdg-terminal-exec` (Linux) or Terminal.app (macOS) | Command template for the `$EDITOR` round trip | §6.3 |
 
 - **Invalid config:** at launch, invalid keys fall back to their defaults and a banner names the file and line. On reload after "Edit settings", an invalid file is ignored entirely: the previous config stays in effect, with the same banner. Unknown keys produce a warning, not an error.

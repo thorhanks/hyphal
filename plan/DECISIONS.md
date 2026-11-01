@@ -68,12 +68,8 @@ Decision: bullet text is one line. On typing or single-line paste, `\t` becomes 
 ### D-021 · Phase 1 filter semantics
 Context: operators arrive in Phase 2 (§6.2). Decision: the Phase 1 query is split on whitespace into terms that are ANDed, each a folded substring match. Quotes, `-`, `OR` and operators are literal text until P2.
 
-### D-022 · Editor round-trip scope
-Context: §6.3. Decision:
-- A focused bullet: the file holds that bullet and its descendants. Top-level lines are re-parented under the bullet's parent at its position.
-- A block selection: the selected bullets, same rule.
-- A focused zoom heading: the zoom target's children. The target itself is not in the file, and top-level lines become its children.
-- An `^id` of a node outside the edited set, or of a trashed node, starts a new node; the original is never moved from elsewhere.
+### D-022 · Indent parsing
+The rest of this decision covered the `$EDITOR` round trip, cut in SPEC §12.2 row 58. What remains:
 - Lines indented more than one level deeper than their predecessor attach as that predecessor's children.
 
 ### D-023 · Plain `hyphal capture` ships in Phase 1
@@ -117,7 +113,7 @@ Context: §5.4 and §7.5 list the markers one at a time. Decision: a bullet can 
 
 ### D-036 · No zoom heading at Home; a virtual bullet in empty zooms
 Context: §4.1 shows the zoom target as an editable heading, but Home can't be renamed. Decision:
-- At Home there is no heading row; the breadcrumb alone shows `Home`. The palette command "Edit zoom in $EDITOR" opens the whole zoom (D-022) at any level, including Home.
+- At Home there is no heading row; the breadcrumb alone shows `Home`.
 - When the current zoom has no visible children (or none at all), the outline shows one **virtual empty bullet**. It is not in the database. The first typed character, Enter or paste turns it into a real node (one insert, then normal typing). Esc on it enters block selection on nothing: the footer shows the hint `Nothing to select`. This replaces D-032's "empty zoom shows the heading focused".
 
 ### D-037 · Web UI replaces the terminal UI

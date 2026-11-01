@@ -19,7 +19,7 @@ internal/
   config/      # TOML config, defaults, validation with line numbers, platform paths (§7.1, §13)
   platform/    # flock, browser launch, sync-folder detection, signals helpers
   store/       # SQLite: schema, migrations, commit+history, trash, snapshots, JSON export/import, locking
-  core/        # in-memory tree, domain operations, rules engines, undo, search, editor round trip,
+  core/        # in-memory tree, domain operations, rules engines, undo, search,
                # Markdown/OPML import/export, committer
   cli/         # Cobra commands, JSON envelope, exit codes, `capture` prompt
   server/      # HTTP, auth, WebSocket, one session per database, protocol (CONTRACTS §12), lifecycle
@@ -133,7 +133,7 @@ type Op struct {
 type ChangeSet struct {
     ID          ChangeSetID
     At          Time
-    Source      string       // "ui" | "cli" | "editor" | "import" | "restore" | "agent:<name>"
+    Source      string       // "ui" | "cli" | "import" | "restore" | "agent:<name>"
     Description string
     UndoOf      ChangeSetID  // "" if none
     Ops         []Op
@@ -284,7 +284,7 @@ type Committer interface {
 }
 ```
 
-Other `core` areas (each its own file set): `paths.go` (path resolution, §10.2), `search.go` (§6.2), `editor.go` (round trip, §6.3), `paste.go` (§5.5), `trash.go` (restore placement, §8.3), `revert.go` (§8.2), `interchange_md.go`, `interchange_opml.go` (§7.5), `inbox.go` (§6.3), `sample.go` (§4.5).
+Other `core` areas (each its own file set): `paths.go` (path resolution, §10.2), `search.go` (§6.2), `paste.go` (§5.5), `trash.go` (restore placement, §8.3), `revert.go` (§8.2), `interchange_md.go`, `interchange_opml.go` (§7.5), `inbox.go` (§6.3), `sample.go` (§4.5).
 
 ### 4.4 Leaf packages (headline APIs)
 
@@ -316,7 +316,7 @@ func Links(src string) []LinkRef               // URLs (P1), node links (P2)
 
 package dialect
 type Item struct { Text string; Task, Completed, Heading bool; ID model.NodeID; Children []*Item; Line int }
-func Parse(r io.Reader, o ParseOptions) ([]*Item, error) // o.IDs: honor ^id suffixes (editor round trip only)
+func Parse(r io.Reader, o ParseOptions) ([]*Item, error)
 func Write(w io.Writer, items []*Item, o WriteOptions) error // o.IDs, o.Header (export comment)
 
 package keymap
@@ -350,7 +350,7 @@ Implements §9.3 and §7.3.
                                 │ commit, reload (LoadAll)     │  │ data_version poll (500ms), │
                                 │ retry failed commit every 3s │  │ snapshots, quick_check,    │
                                 └───────────────┬──────────────┘  │ page load, export, purge,  │
-                                                ▼                 │ theme watch, $EDITOR       │
+                                                ▼                 │ theme watch                │
                                              store.DB             └───────────────────────────┘
 ```
 

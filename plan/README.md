@@ -117,7 +117,7 @@ From §9.6 and §11. Agents prepare tooling and stop:
 
 | Checkpoint | Phase | Agent's part |
 | --- | --- | --- |
-| Key matrix in real browsers, real IME, real `$EDITOR` terminals | 0 | Build `/keyprobe` and the editor test command, write instructions, ingest the results into a report |
+| Key matrix in real browsers, real IME | 0 | Build `/keyprobe`, write instructions, ingest the results into a report |
 | Comparison-set evaluation (§3) | 0–1 | Write an evaluation checklist in `plan/reports/` |
 | Reference screens + visual review (§4.6) | 1 | Produce the five screens and a viewing script |
 | Real Workflowy OPML import (§7.5) | 1 | Importer + `hyphal import --dry-run`-style loss report; the human supplies the file at `testdata/private/` (gitignored) or a redacted copy for `testdata/opml/` |

@@ -339,7 +339,7 @@ Acceptance criteria:
 ### P0-21 · History growth simulation
 Type: spike · Packages: `internal/testgen`, `cmd/hyphal-sim` (optional, or a test with `-tags sim`) · Depends on: P0-11, P0-13 · Spec: §8.4, §12.3 (history growth), §12.4.1
 
-Deliverables: a simulator that replays a "heavy day" (≈ 2,000 typing seals, 300 structural actions, 50 deletes, 20 page saves of 2 KB, 5 editor round trips touching 50 lines) for 7 and 365 simulated days on a 5,000-node outline. Report `plan/reports/p0-21-growth.md`: DB size per day/year, history share, `quick_check` duration at 1 year, `LoadAll` time at 1 year, recommendation on a retention default (§12.3).
+Deliverables: a simulator that replays a "heavy day" (≈ 2,000 typing seals, 300 structural actions, 50 deletes, 20 page saves of 2 KB) for 7 and 365 simulated days on a 5,000-node outline. Report `plan/reports/p0-21-growth.md`: DB size per day/year, history share, `quick_check` duration at 1 year, `LoadAll` time at 1 year, recommendation on a retention default (§12.3).
 
 Acceptance criteria:
 - AC1 Report exists with measured numbers and a recommendation → Thor review.
@@ -357,17 +357,16 @@ Acceptance criteria:
 ---
 
 ### P0-23 · Browser, IME and terminal checks
-Type: human · Depends on: P0-19 · Spec: §6.4, §6.3, §9.6
+Type: human · Depends on: P0-19 · Spec: §6.4, §9.6
 
 These close what spike P0-W1 couldn't automate.
 
-Agent part: write `docs/keyprobe.md` covering three checks, and a command that turns the results into `plan/reports/p0-23-browser-checks.md`. Then stop.
+Agent part: write `docs/keyprobe.md` covering two checks, and a command that turns the results into `plan/reports/p0-23-browser-checks.md`. Then stop.
 
 1. **Keys.** `/keyprobe` in Chromium as a tab and as `--app`, Firefox, and on a Mac in Safari. Save each JSON result to `testdata/keyprobe/`.
 2. **IME,** if Thor uses one: compose text in a bullet, including across Enter.
-3. **`$EDITOR`.** `scripts/editor-check.sh` opens a temp file through the default `editor.command` in each terminal Thor uses (Ghostty, Alacritty, Kitty on Omarchy) and reports whether completion was signalled after the editor closed, and not before.
 
-Afterwards a follow-up agent runs the report and asks Thor about any §6.4 or §6.3 change.
+Afterwards a follow-up agent runs the report and asks Thor about any §6.4 change.
 
 ---
 

@@ -14,14 +14,14 @@ Wave A (leaves + store):   P1-01 config · P1-02 dialect · P1-03 opml · P1-05 
 Wave B (core):             P1-10 visibility · P1-11 paths · P1-12 Enter · P1-13 Backspace/Delete
                            P1-14 indent/move · P1-15 small ops · P1-16 filter · P1-22 inbox+sample
                            P1-23 committer · P1-24 Outline in server mode
-Wave C (core interchange): P1-17 paste/cut · P1-18 editor round trip · P1-19 page edit
+Wave C (core interchange): P1-17 paste/cut · P1-19 page edit
                            P1-20 Markdown · P1-21 OPML
 Wave D (CLI):              P1-25 skeleton → P1-26 node cmds · P1-27 trash/page/history · P1-28 export/import/…
                            P1-34 capture prompt
 Wave E (web base):         P1-29 theming → P1-30 shell and lifecycle → P1-31 rendering → P1-32 text editing → P1-33 structure keys
 Wave F (web features):     P1-35 block selection · P1-36 collapse/zoom · P1-37 undo · P1-38 overlays+palette+help
                            P1-39 pickers + o · P1-40 filter UI · P1-41 clipboard/paste · P1-42 page renderer
-                           P1-43 page screen + editor · P1-44 $EDITOR · P1-45 Trash view
+                           P1-43 page screen + editor · P1-45 Trash view
 Wave G (robustness):       P1-46 tabs/read-only/reload · P1-47 durability · P1-48 config · P1-49 first run
 Wave H (ship + gate):      P1-50 packaging/docs · P1-51 benchmarks · P1-52 reference screens · P1-53 Workflowy import (human)
                            P1-54 parity suite · P1-55 interaction matrix · P1-56 gate
@@ -44,7 +44,7 @@ Deliverables:
 - `Reload(path, previous) (Config, []Problem)`: if any error-severity problem exists, return `previous` unchanged (§13 "an invalid file is ignored entirely").
 - `CommentedTemplate() string`: a full `config.toml` listing every key commented out with its default and a one-line explanation (§4.7, §13). Written when "Edit settings" opens a missing file (P1-48).
 - `[keys.<context>]` parsing: `command_id = "key"` or `["key1","key2"]`; returned raw as `Keys map[string]map[string][]string` (config does not import `keymap`; validation happens in `keymap.WithOverrides`, wired in P1-48).
-- `editor.command` default per platform (§6.3); `browser` and `theme` per §13.
+- `browser` and `theme` per §13.
 
 Acceptance criteria:
 - AC1 Empty/missing config gives the §13 defaults → `TestLoad_Defaults` (table of every key).
@@ -55,18 +55,18 @@ Acceptance criteria:
 - AC6 `CommentedTemplate()` parses as valid TOML and, uncommented, equals the defaults → `TestTemplate_MatchesDefaults`.
 
 ### P1-02 · `dialect`: shared Markdown list dialect
-Type: impl · Packages: `internal/dialect` · Depends on: P0-16, P0-02 · Spec: §7.5 (dialect), §5.4 (leading markers), §5.5, §6.3
+Type: impl · Packages: `internal/dialect` · Depends on: P0-16, P0-02 · Spec: §7.5 (dialect), §5.4 (leading markers), §5.5
 
-Deliverables: `Parse(r, ParseOptions{IDs bool, SkipHeader bool})`, `Write(w, items, WriteOptions{IDs bool, Header string, ExportColors bool, PageLinks func(*Item) string})`.
+Deliverables: `Parse(r, ParseOptions{SkipHeader bool})`, `Write(w, items, WriteOptions{IDs bool, Header string, ExportColors bool, PageLinks func(*Item) string})`.
 
 Parse rules:
 - List markers `-`, `*`, `+`, `1.`/`1)`; indentation spaces or tabs; infer the indent unit from the first indented line (tab = one level; spaces: the smallest positive indent delta). Inconsistent deeper indents attach to the previous line (D-022).
 - Lines that are not list items become bullets at the current level (§7.5); blank lines ignored.
 - Leading markers converted with `markup.ConvertLeadingMarker` after the list marker (`[ ] `, `[x] `, `## `, combined per D-035).
-- `^id` suffix: only when `IDs` is true, and only a trailing ` ^<valid id>`; otherwise text (§6.3). On import (`IDs=false`) a valid trailing ` ^id` is **stripped and ignored** (§7.5: "ignores the suffix"); on paste too (§5.5).
+- `^id` suffix: on import and paste, a valid trailing ` ^<id>` is **stripped and ignored** (§7.5, §5.5); any other `^` is text.
 - First line `<!-- … -->` skipped when `SkipHeader`.
 - Strip a trailing page link per D-011 and expose it as `Item.PageLink`.
-- `_italic_` and `__bold__` converted to `*…*`/`**…**` on import (§5.8 "Importers convert"); not on the editor round trip or paste (decision: paste converts too, since pasted text comes from other apps — log as A-entry if you disagree).
+- `_italic_` and `__bold__` converted to `*…*`/`**…**` on import (§5.8 "Importers convert"; decision: paste converts too, since pasted text comes from other apps — log as A-entry if you disagree).
 - Text with control chars handled per D-020.
 
 Write rules: two-space indent, `- ` marker, `[ ] `/`[x] ` (completed non-task also `[x]`, §7.5), `## `, text, optional ` ^id`, optional page link.
@@ -253,7 +253,7 @@ Deliverables:
 - `PlanSetColor(nodes, color|none)` using `markup.SetColor` (§5.8), `PlanWrapStyle(nodes, Bold|Italic)` for whole bullets from the palette (wrap whole text; if already wrapped entirely, unwrap — decision: toggle).
 - `PlanMoveTo(nodes, parent)`: append as last children (D-028); refuse moving into own subtree (`ErrInvalid` → hint).
 - `PlanDelete` cursor rule (§8.3): next sibling, else previous sibling, else parent; message `"Moved \"<text>\" and N descendants to Trash · Ctrl+Z undoes"` (`"Moved \"<text>\" to Trash · Ctrl+Z undoes"` when N = 0).
-- `PlanEditText(node, text)` applies `ConvertLeadingMarker` (§5.4) and D-020 cleanup; used by typing seal, CLI `edit --text`, editor round trip.
+- `PlanEditText(node, text)` applies `ConvertLeadingMarker` (§5.4) and D-020 cleanup; used by typing seal and CLI `edit --text`.
 
 Acceptance criteria:
 - AC1 Mixed-state complete rule → `TestToggleComplete_Mixed`.
@@ -292,29 +292,13 @@ Acceptance criteria:
 - AC4 Cut then paste of the same text restores the same IDs and page at the new position, as one change set; the cut stays undoable separately → `TestCutPaste_IsMove`.
 - AC5 Cut, then the clipboard changes (different text) → paste creates new nodes → `TestCutPaste_ClipboardChanged`.
 
-### P1-18 · `$EDITOR` round trip (core)
-Type: impl · Packages: `internal/core` · Depends on: P1-02, P1-15 · Spec: §6.3 · D-022
-
-Deliverables:
-- `EditorExport(tree, scope EditScope) (text string, manifest Manifest)`: scope = focused node | selection | zoom; includes **every live descendant** regardless of collapse, completion visibility or filter (§6.3); each line ends with ` ^id`.
-- `EditorApply(ctx, manifest, edited string) (Plan, Summary, error)`: parse with IDs; dedupe IDs (first wins, later lines new); IDs outside the manifest or trashed → new nodes (D-022); compute ops: `edit_text`/`set_task`/`set_complete`/`set_heading` for changed lines; `insert` for new; `delete` for manifest nodes missing from the file (with their whole remaining subtrees? No — only nodes missing; children that remain get re-parented per their file position, §6.3); `move` for changed parent or order (minimize moves: keep the longest increasing subsequence of existing keys per parent, generate keys for the rest). Source `editor`. Summary `"3 changed, 2 new, 1 to Trash"` (omit zero parts; `"No changes"`).
-- Parse failure → `ErrParse{Line}`; nothing applied.
-- Concurrency: the plan is computed against the tree at save time; the caller commits it after any intervening changes (§7.3); `Stale` from the commit produces the D-033 message.
-
-Acceptance criteria (scripted edits, §9.5):
-- AC1 Rename, reorder, re-indent, add line, remove line → exact op sets → `TestEditorApply_Basic` (table).
-- AC2 Collapsed, completed-hidden and filtered-out descendants are in the file → `TestEditorExport_IncludesHidden`.
-- AC3 Deleting a parent line while keeping its children re-parents them by indentation → `TestEditorApply_DeleteParentKeepChildren`.
-- AC4 Duplicated ID → first keeps the node, second new → `TestEditorApply_DuplicateID`.
-- AC5 Stripped ID → new node + old to Trash, visible in the summary → `TestEditorApply_StrippedID`.
-- AC6 Foreign or trashed ID → new node; the foreign node is untouched → `TestEditorApply_ForeignID`.
-- AC7 Malformed input that the dialect rejects → error, no plan → `TestEditorApply_ParseError`.
-- AC8 Export → Apply with no edits → "No changes", no change set → `TestEditorApply_Identity` (property over random trees).
+### P1-18 · Withdrawn
+The `$EDITOR` round trip was cut (SPEC §12.2 row 58).
 
 ### P1-19 · Page editing (core)
 Type: impl · Packages: `internal/core` · Depends on: P0-10, P0-11 · Spec: §5.7, §7.3
 
-Deliverables: `PageEditorText(tree, node) string` = `# <bullet text>\n\n<markdown>` (no blank body line when empty: `# Title\n`), used by both the built-in editor and `$EDITOR`; `PageEditorApply(ctx, node, edited) Plan`: if the first line is an H1 (`# …`), its text is the title → `edit_text` if changed (leading-marker conversion applies); the rest (with one leading blank line stripped) is the page; otherwise the whole file is the page and the title is unchanged. Empty page text → no page created / existing page deleted (§5.7). One change set (`source=ui`). `PlanDeletePage(node)`. Built-in editing seals per §7.3's rules applied to the page: 2 s idle, 5 s open, leaving edit mode.
+Deliverables: `PageEditorText(tree, node) string` = `# <bullet text>\n\n<markdown>` (no blank body line when empty: `# Title\n`), used by the built-in editor; `PageEditorApply(ctx, node, edited) Plan`: if the first line is an H1 (`# …`), its text is the title → `edit_text` if changed (leading-marker conversion applies); the rest (with one leading blank line stripped) is the page; otherwise the whole file is the page and the title is unchanged. Empty page text → no page created / existing page deleted (§5.7). One change set (`source=ui`). `PlanDeletePage(node)`. Built-in editing seals per §7.3's rules applied to the page: 2 s idle, 5 s open, leaving edit mode.
 
 Acceptance criteria:
 - AC1 Title change renames the bullet; body saved → `TestPageEditor_Rename`.
@@ -401,7 +385,7 @@ Acceptance criteria:
 ### P1-25 · CLI skeleton
 Type: impl · Packages: `internal/cli`, `cmd/hyphal` · Depends on: P1-01, P1-11, P0-12 · Spec: §10.2 · CONTRACTS §7
 
-Deliverables: Cobra root `hyphal` (no subcommand → start or reuse the server and open a window; `hyphal serve` runs it in the foreground, via a function variable to avoid an import cycle: `cli.RunServer = server.Run` in `cmd/hyphal/main.go`); persistent flags `--db`, `--json`, `--source` (validate `cli` | `agent:<name>`; `ui`, `editor`, `import`, `restore` are reserved), `--version`; DB resolution order (§10.2); envelope printer; error→code→exit mapping (CONTRACTS §7.2) in one place; human printers; version string injected by `-ldflags` (default `dev`).
+Deliverables: Cobra root `hyphal` (no subcommand → start or reuse the server and open a window; `hyphal serve` runs it in the foreground, via a function variable to avoid an import cycle: `cli.RunServer = server.Run` in `cmd/hyphal/main.go`); persistent flags `--db`, `--json`, `--source` (validate `cli` | `agent:<name>`; `ui`, `import`, `restore` are reserved), `--version`; DB resolution order (§10.2); envelope printer; error→code→exit mapping (CONTRACTS §7.2) in one place; human printers; version string injected by `-ldflags` (default `dev`).
 
 Acceptance criteria:
 - AC1 `--db` beats `HYPHAL_DB` beats config → `TestResolveDB`.
@@ -612,7 +596,7 @@ Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-30, 
 Deliverables:
 - `<hyphal-overlay>` on native `<dialog>`: title, filter input, list with highlight, width from a token; typing filters (fuzzy on the server through `query`, stale results dropped), Up/Down and Ctrl+N/Ctrl+P move, Enter chooses, Esc closes, click chooses, focus returns where it was.
 - Command palette (Ctrl+P): every command available in the current context with its binding right-aligned, recently used first (`palette_recent`). Running a command executes it in the context it was opened from.
-- Palette-only commands in Phase 1: Collapse all, Delete page, Bold (bullets), Italic (bullets), Color…, Edit settings, Edit zoom in $EDITOR (D-036), Empty Trash, Open Trash.
+- Palette-only commands in Phase 1: Collapse all, Delete page, Bold (bullets), Italic (bullets), Color…, Edit settings, Empty Trash, Open Trash.
 - Help overlay (F1, `?` in block selection): all commands in the current context grouped by context with their keys, generated from the keymap, filterable.
 
 Acceptance criteria:
@@ -669,7 +653,7 @@ Acceptance criteria:
 ### P1-43 · Page screen and built-in editor
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-42, P1-19 · Spec: §5.7, §6.4 (page view, page edit) · D-034
 
-Deliverables: `p` in block selection opens the page in view mode, or edit mode on a bullet without one; breadcrumb `… › ≡ view`; title as the page heading; scrolling keys; Tab/Shift+Tab focus URL links; Enter opens the focused link or edits; `<hyphal-page-editor>`: `contenteditable="plaintext-only"` over the §5.7 text with the `# Title` line, text-editing keys, Enter newline, Tab two spaces, highlighting through the Custom Highlight API from a small line-based highlighter; Esc saves and returns to view mode (or the outline if the page was deleted); Esc from view returns to block selection on the bullet; `E` opens `$EDITOR` (P1-44); palette "Delete page".
+Deliverables: `p` in block selection opens the page in view mode, or edit mode on a bullet without one; breadcrumb `… › ≡ view`; title as the page heading; scrolling keys; Tab/Shift+Tab focus URL links; Enter opens the focused link or edits; `<hyphal-page-editor>`: `contenteditable="plaintext-only"` over the §5.7 text with the `# Title` line, text-editing keys, Enter newline, Tab two spaces, highlighting through the Custom Highlight API from a small line-based highlighter; Esc saves and returns to view mode (or the outline if the page was deleted); Esc from view returns to block selection on the bullet; palette "Delete page".
 
 Acceptance criteria:
 - AC1 `p` on a bullet with a page shows view mode → `page open` (e2e).
@@ -680,18 +664,8 @@ Acceptance criteria:
 - AC6 Text-editing movement keys work across lines; Tab inserts two spaces → `page edit keys @<command>@page_edit` (e2e).
 - AC7 Highlighting never changes the text → `page edit highlight` (e2e).
 
-### P1-44 · `$EDITOR` round trip
-Type: impl · Packages: `internal/server`, `internal/web`, `scripts/` · Depends on: P1-18, P1-19, P1-35, P0-23 · Spec: §6.3, §5.7, §13 (`editor.command`)
-
-Deliverables: `e` in block selection (selection), palette "Edit zoom in $EDITOR" (zoom scope), `e` on a focused zoom heading (zoom scope), `E` on a page. The temp file (0600 in the private 0700 dir) opens through `editor.command` with the completion wrapper P0-23 validated. The UI stays live with message `Editing in $EDITOR…` and a `Finish editing` action. On completion: parse, apply one change set (source `editor`, on the undo stack), summary message. Parse failure → nothing applied, file kept, banner `"Couldn't read the edited file (line N)"` with `Reopen` and `Discard` actions. Temp file removed after success.
-
-Acceptance criteria:
-- AC1 A fake editor reorders and renames lines → applied; summary message; Ctrl+Z undoes it all → `TestEditor_Apply` (servertest), `editor round trip` (e2e).
-- AC2 A malformed file → banner, nothing applied; Reopen runs the command again on the same file → `TestEditor_ParseError`.
-- AC3 Temp file permissions 0600 in a 0700 dir → `TestEditor_Permissions`.
-- AC4 A CLI change or a UI edit to a bullet while the editor is open → the edit lands after it; message per D-033 → `TestEditor_Concurrent`.
-- AC5 A command that exits before the editor closes doesn't apply early; `Finish editing` applies manually → `TestEditor_EarlyExit`.
-- AC6 A failing command applies nothing and shows a message → `TestEditor_Failure`.
+### P1-44 · Withdrawn
+The `$EDITOR` round trip was cut (SPEC §12.2 row 58).
 
 ### P1-45 · Trash view
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-06, P1-38 · Spec: §4.8, §8.3, §6.4 (Trash table)
@@ -734,9 +708,9 @@ Acceptance criteria:
 - AC6 The first state is sent before `quick_check` completes (check blocked by a test hook) → `TestStartup_QuickCheckAfterFirstState`.
 
 ### P1-48 · Config in the UI
-Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-01, P1-38, P1-44 · Spec: §4.7, §13, §6.4 (keymap config)
+Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-01, P1-38, P1-43 · Spec: §4.7, §13, §6.4 (keymap config)
 
-Deliverables: apply config at startup (theme, column width, density, thread glow, footer, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open through `editor.command`, watch the file and `Reload` on change (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
+Deliverables: apply config at startup (theme, column width, density, thread glow, footer, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open it in the built-in plain-text editor, and `Reload` on save or when the file changes (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
 
 Acceptance criteria:
 - AC1 `column_width = 60` narrows the column; `density = "compact"` applies → `config applied` (e2e).
@@ -759,7 +733,7 @@ Acceptance criteria:
 ### P1-50 · Packaging and docs
 Type: impl · Packages: `packaging/`, `docs/`, `.goreleaser.yaml`, `.github/workflows/release.yml` · Depends on: P1-28, P1-34, P1-30 · Spec: §4.7, §9.1 (distribution)
 
-Deliverables: `packaging/hyphal.desktop` (`Exec=hyphal`; `StartupWMClass=hyphal`; categories Office;Utility), Hyprland window rule examples for `hyphal` and `hyphal-capture` in `docs/omarchy.md`, `.goreleaser.yaml` (linux amd64/arm64, darwin amd64/arm64, `CGO_ENABLED=0`, version ldflags, Homebrew tap formula, AUR `PKGBUILD` via goreleaser's `aurs`), `docs/` pages: install, keymap (generated from `keymap.Defaults()` by `go generate`), browsers (supported list, app window, reserved keys), theming (P1-29), editor temp files/swap files note (§6.3), backups (off-machine backup is the user's job, §8), never sync the live DB (§8.1), scheduled export via systemd timer/launchd/cron (stub for P2-13), CLI reference (generated by Cobra), `README.md` update.
+Deliverables: `packaging/hyphal.desktop` (`Exec=hyphal`; `StartupWMClass=hyphal`; categories Office;Utility), Hyprland window rule examples for `hyphal` and `hyphal-capture` in `docs/omarchy.md`, `.goreleaser.yaml` (linux amd64/arm64, darwin amd64/arm64, `CGO_ENABLED=0`, version ldflags, Homebrew tap formula, AUR `PKGBUILD` via goreleaser's `aurs`), `docs/` pages: install, keymap (generated from `keymap.Defaults()` by `go generate`), browsers (supported list, app window, reserved keys), theming (P1-29), backups (off-machine backup is the user's job, §8), never sync the live DB (§8.1), scheduled export via systemd timer/launchd/cron (stub for P2-13), CLI reference (generated by Cobra), `README.md` update.
 
 Acceptance criteria:
 - AC1 `goreleaser check` and `goreleaser build --snapshot --clean` succeed in CI → workflow job.

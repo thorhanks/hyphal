@@ -11,14 +11,14 @@ Formats and names that several packages, tests or external users depend on. Chan
 - Node IDs: 12 characters from the lowercase Crockford base32 alphabet `0123456789abcdefghjkmnpqrstvwxyz` (no `i l o u`), 60 bits from `crypto/rand`. Regex: `^[0-9a-hjkmnp-tv-z]{12}$`. Example: `k3j9x2m4q7tb` (D-003).
 - Change-set IDs: same format and generator.
 - The root also has a random ID; it is stored in `meta.root_id`.
-- `ids.Valid` is the only validator. The editor round trip recognizes ` ^<id>` only when `<id>` is valid and is the line's trailing token (§6.3).
+- `ids.Valid` is the only validator.
 
 ## 3. Positions (§7.2)
 
 - Fractional index keys per Greenspan, "Implementing Fractional Indexing" (base-62 digits `0-9A-Za-z`, variable-length integer part whose head character encodes its length, then a fractional part with no trailing `0`). Keys compare with plain byte comparison, which matches SQLite's `BINARY` collation (D-004).
 - `fracindex.Between("", "")` returns `a0`. `Between(a, b)` requires `a < b` (or an open end) and returns `a < k < b`.
 - Sibling order is `(position, id)`: ties (possible after concurrent inserts from two connections) break by ID.
-- `NBetween(a, b, n)` returns n evenly distributed keys (used by paste, import, duplicate, editor round trip).
+- `NBetween(a, b, n)` returns n evenly distributed keys (used by paste, import, duplicate).
 
 ## 4. Database schema v1 (§7.2, §8.2)
 
