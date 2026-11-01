@@ -68,6 +68,19 @@ func (t *Tree) Node(id model.NodeID) (*model.Node, bool) {
 	return n, ok
 }
 
+// AllNodes returns every node ID, live and trashed, sorted.
+func (t *Tree) AllNodes() []model.NodeID {
+	return slices.Sorted(maps.Keys(t.nodes))
+}
+
+// displayName names a node in a message; the root's stored text is empty (D-024).
+func (t *Tree) displayName(id model.NodeID) string {
+	if id == t.root {
+		return "Home"
+	}
+	return `"` + t.nodes[id].Text + `"`
+}
+
 // Children returns a node's live children in order (CONTRACTS §3). The caller
 // must not change the slice.
 func (t *Tree) Children(id model.NodeID) []model.NodeID {
@@ -238,6 +251,15 @@ func (t *Tree) detach(n *model.Node) {
 	}
 }
 
+// ForgetNode drops a row from the tree without any history: what a purge does
+// (§8.3). The Purge plan arrives with P1-06.
+func (t *Tree) ForgetNode(id model.NodeID) {
+	if n, ok := t.nodes[id]; ok {
+		t.detach(n)
+		delete(t.nodes, id)
+	}
+}
+
 // Problem is one broken tree invariant.
 type Problem struct {
 	Invariant int          // the item number in CONTRACTS §8
@@ -256,7 +278,7 @@ func (t *Tree) Check() []Problem {
 	report := func(invariant int, id model.NodeID, format string, args ...any) {
 		out = append(out, Problem{invariant, id, fmt.Sprintf(format, args...)})
 	}
-	sorted := slices.Sorted(maps.Keys(t.nodes))
+	sorted := t.AllNodes()
 
 	// 1. Exactly one root, named by meta.root_id.
 	var roots []model.NodeID
