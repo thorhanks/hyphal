@@ -160,3 +160,8 @@ Context: Thor chose a settings modal (SPEC §4.8, §12.2 row 62). go-toml's mars
 Context: P0-05 compares two SQLite drivers, but `go.mod` must pin only the chosen one; the card allows deleting the spike or keeping it as a benchmark.
 Decision: keep `internal/store/driverspike/` as its own Go module (own `go.mod`), run by `.github/workflows/driverspike.yml` on changes and on demand. `make check` and `./...` in the main module do not see it.
 Alternatives: delete the spike after measuring (numbers not reproducible); build tags in the main module (the losing driver would still be in `go.mod`).
+
+### A-002 · Inverting an insert twice (P0-07, 2026-11-01)
+Context: P0-07 AC3 asks for `Inverse(Inverse(op)) == op` for every kind, but CONTRACTS §5 makes insert invert to delete and delete to restore, so an insert inverted twice is a restore. D-009 and D-013 need this: redoing an undone insert restores the node.
+Decision: follow CONTRACTS §5. The double inverse is exact for every kind except insert, and `TestInverse` checks that insert ends at restore. The delete made from an insert has `deleted_at` and `deleted_by` null, since `Inverse` knows neither; `store.Commit` stamps them per CONTRACTS §4. `ChangedFields` takes a `Current` struct and also returns an error for a malformed payload.
+Alternatives: make `Inverse` of a delete return an insert when it came from one (the op doesn't record that, and a re-insert would conflict with the node's row).

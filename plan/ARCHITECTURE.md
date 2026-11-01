@@ -8,7 +8,7 @@ Implements §9.1–9.3 of the spec. The architectural layers are `server`, `cli`
 cmd/
   hyphal/main.go              # calls cli.Execute(); no logic
 internal/
-  model/       # shared data types: Node, Page, ChangeSet, Op, payloads. No logic beyond (un)marshalling
+  model/       # shared data types: Node, Page, ChangeSet, Op, payloads. Only (un)marshalling, op inverses and field comparison
   ids/         # node and change-set ID generation and validation (CONTRACTS §2)
   fracindex/   # fractional index keys (CONTRACTS §3)
   textfold/    # case folding + diacritic removal with offset maps (§6.2)
