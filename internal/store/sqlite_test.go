@@ -11,11 +11,20 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/thorhanks/hyphal/internal/model"
 )
 
 // TestMain doubles as a helper process for cross-process tests: with
 // STORE_TEST_HELPER=write it opens STORE_TEST_DB, writes one row and exits.
 func TestMain(m *testing.M) {
+	if os.Getenv("STORE_TEST_HELPER") == "commit" {
+		if err := helperCommit(os.Getenv("STORE_TEST_DB"), model.NodeID(os.Getenv("STORE_TEST_NODE"))); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 	if os.Getenv("STORE_TEST_HELPER") == "write" {
 		if err := helperWrite(os.Getenv("STORE_TEST_DB")); err != nil {
 			fmt.Fprintln(os.Stderr, err)

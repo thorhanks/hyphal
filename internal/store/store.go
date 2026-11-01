@@ -41,6 +41,12 @@ var (
 	// ErrNeedsMigration means a read-only open found an older schema, which
 	// can't be migrated without writing.
 	ErrNeedsMigration = errors.New("database needs a migration and is opened read-only")
+	// ErrConflict means an Expect failed at commit (§7.3).
+	ErrConflict = errors.New("version conflict")
+	// ErrInvalid means a commit would break a tree invariant (CONTRACTS §4, §8).
+	ErrInvalid = errors.New("invalid change")
+	// ErrBusy means another writer held the database past the busy timeout (§8.6).
+	ErrBusy = errors.New("database is busy")
 )
 
 // OpenOptions configures Open (ARCHITECTURE §4.2).
@@ -70,6 +76,8 @@ type DB struct {
 	path     string
 	opts     OpenOptions
 	readOnly ReadOnlyReason
+
+	commitHook func(op int) error // test only: runs before each op, an error aborts
 }
 
 // Open opens the database at path, creating the file and schema if asked and
@@ -293,27 +301,4 @@ func metaValue(ctx context.Context, q querier, key string) (string, bool, error)
 		return "", false, err
 	}
 	return value, true, nil
-}
-
-// Expect is a version the caller requires of a node or page at commit (§7.3).
-type Expect struct {
-	NodeID  model.NodeID
-	Version int64
-	Page    bool
-}
-
-// CommitResult is what Commit recorded (§8.2).
-type CommitResult struct {
-	ChangeSet model.ChangeSet // as recorded: before values recomputed from the database
-	Stale     []model.NodeID  // nodes whose version differed from what the caller last saw
-}
-
-// Commit writes a change set and its history in one transaction (§7.3, §8.2).
-// So far it only refuses writes on a read-only database.
-// TODO(P0-08): write the change set.
-func (db *DB) Commit(_ context.Context, _ model.ChangeSet, _ []Expect, _ map[model.NodeID]int64) (CommitResult, error) {
-	if db.readOnly != ReadOnlyNone {
-		return CommitResult{}, ErrReadOnly
-	}
-	return CommitResult{}, errors.New("commit is not implemented")
 }
