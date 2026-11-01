@@ -592,7 +592,7 @@ Acceptance criteria:
 Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-30, P0-19 · Spec: §4.6 (overlays), §4.8 (help), §6.4 (overlay keys), §6.6 (palette)
 
 Deliverables:
-- `<hyphal-overlay>` on native `<dialog>`: title, filter input, list with highlight, width from a token; typing filters (fuzzy on the server through `query`, stale results dropped), Up/Down and Ctrl+N/Ctrl+P move, Enter chooses, Esc closes, click chooses, focus returns where it was.
+- `<hyphal-overlay>` on native `<dialog>`: title, filter input, list with highlight, width from a token; typing filters (fuzzy on the server through `query`, stale results dropped), Up/Down move, Enter chooses, Esc closes, click chooses, focus returns where it was.
 - Command palette (Ctrl+P): every command available in the current context with its binding right-aligned, recently used first (`palette_recent`). Running a command executes it in the context it was opened from.
 - Palette-only commands in Phase 1: Collapse all, Delete page, Bold (bullets), Italic (bullets), Color…, Edit settings, Empty Trash, Open Trash.
 - Help overlay (F1, `?` in block selection): all commands in the current context grouped by context with their keys, generated from the keymap, filterable.
