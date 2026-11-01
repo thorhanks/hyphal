@@ -1,6 +1,6 @@
 # Phase 3 · Knowledge and web extras
 
-Spec: §11 row 3, §10.1. Scope: backlinks, link previews, saved searches, templates; image attachments, `hyphal://` links, print and PDF, theme picker.
+Spec: §11 row 3, §10.1. Scope: backlinks, link previews, saved searches, templates; image attachments, `hyphal://` links, print and PDF.
 
 Exit gate (automated, P3-06): **backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs; a pasted image survives export and restore.**
 
@@ -10,7 +10,7 @@ Exit gate (automated, P3-06): **backlinks list every linking bullet and page; a 
 P3-01 templates decision ─▶ P3-05 templates
 P3-02 backlinks core ─▶ P3-03 backlinks overlay
 P3-04 saved searches (schema v2) ─▶ P3-08 attachments
-independent: P3-07 link previews · P3-09 `hyphal://` · P3-10 print · P3-11 theme picker
+independent: P3-07 link previews · P3-09 `hyphal://` · P3-10 print
 P3-06 gate
 ```
 
@@ -85,12 +85,8 @@ Deliverables: palette "Print…" renders the whole zoom or page outside the row 
 Acceptance criteria:
 - AC1 Every bullet of a zoom beyond the row window is in the print DOM, and threads and chrome follow the print stylesheet → `print outline` (e2e).
 
-### P3-11 · Theme picker
-Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-29 · Spec: §10.1 (web extras), §4.4
-Deliverables: palette "Theme…" lists bundled and user themes, previews on arrow, applies on Enter, reverts on Esc. The choice lives in `ui_state` and overrides `theme`.
-Acceptance criteria:
-- AC1 Preview and revert leave no trace → `theme preview` (e2e).
-- AC2 The choice persists across launches → `theme picker persists` (e2e).
+### P3-11 · Withdrawn
+Theme is a control in the Phase 1 settings modal (P1-48, SPEC §12.2 row 62).
 
 ### P3-06 · Phase 3 gate
 Type: gate · Depends on: P3-02…P3-05

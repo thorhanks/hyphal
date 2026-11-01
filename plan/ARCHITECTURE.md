@@ -81,7 +81,7 @@ Pin exact versions in `go.mod`. Adding any other Go module requires asking (READ
 | `github.com/pelletier/go-toml/v2` | Config (needs positions for error lines; D-012) |
 | `pgregory.net/rapid` | Property tests |
 
-**Frontend: CodeMirror 6 only,** for pages and the settings editor (SPEC §9.1, D-046). Otherwise the UI imports nothing external (SPEC §2.7), with no npm packages, CDNs, polyfills, bundlers or transpilers in what ships. Each exception needs Thor's approval and a DECISIONS entry.
+**Frontend: CodeMirror 6 only,** for pages (SPEC §9.1, D-046). Otherwise the UI imports nothing external (SPEC §2.7), with no npm packages, CDNs, polyfills, bundlers or transpilers in what ships. Each exception needs Thor's approval and a DECISIONS entry.
 
 **Development only:** `@playwright/test` under `e2e/`, approved by Thor on 2026-10-31. Nothing under `e2e/` is embedded or shipped.
 

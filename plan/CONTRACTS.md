@@ -243,6 +243,9 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 {"t":"filter","seq":10,"text":"tooltip"}
 {"t":"pagetext","seq":11,"id":"<id>","text":"…","final":false}
 {"t":"blur"}
+{"t":"settings","seq":13}
+{"t":"setting","seq":14,"key":"density","value":"compact"}
+{"t":"setting","seq":15,"reset":"appearance"}
 ```
 
 - `action.seq` and `text.seq` are separate counters. Every `action` gets exactly one `state` reply echoing its `seq`. `text` gets no reply of its own; the next `state` carries `textAck`.
@@ -262,6 +265,9 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 {"t":"clipboard","text":"…"}
 {"t":"page","id":"<id>","text":"…","version":3}
 {"t":"theme","href":"/theme.css?v=<hash>"}
+{"t":"settings","seq":14,"values":{"density":"compact","trash_days":30},"errors":{"trash_days":"…"},
+ "config":{"density":"compact","threadGlow":false},"keymap":[…],"themes":["auto","light","dark"],
+ "path":"…","locked":false}
 {"t":"open","url":"https://…"}
 {"t":"error","code":"…","message":"…"}
 ```
@@ -283,6 +289,7 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 - **During composition,** the client defers applying `state` until `compositionend`.
 - On reconnect the client sends `hello`, resends unacknowledged `text`, and renders the fresh `state`.
 - `theme` tells the page to swap its theme stylesheet without a reload.
+- `settings` answers `settings` and `setting`, echoing `seq` to the sender. After a change or a reload of `config.toml`, every window also gets one, without `seq`, and applies `config` and `keymap`. `values` uses the §13 key names. `errors` holds a rejected value's message, and `locked` is true while the modal must stay disabled (invalid or unwritable file). `reset` names a section: `appearance`, `data`, `export`, `startup` or `keys`.
 
 ### 12.4 HTTP routes
 

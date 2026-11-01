@@ -149,6 +149,9 @@ Context: SPEC §5.7, §9.1, spike P0-W2. CodeMirror needs bundling, and D-039 ke
 ### D-047 · Web review of 2026-11-01
 Context: Thor approved the web UI review (SPEC §12.2 rows 60, 61). Decision: the port is the first free one from `40000 + (FNV-1a of the absolute database path mod 10000)`, trying 16 in order. The cookie is `hyphal_<port>`, signed with `<data>/session.key`, valid for a year; a request without it gets a page saying to run `hyphal`. Cards marked "Also (D-047)" carry the smaller additions. `rivo/uniseg` stays: `textfold` uses it for grapheme-safe match ranges.
 
+### D-048 · Settings modal over config.toml
+Context: Thor chose a settings modal (SPEC §4.8, §12.2 row 62). go-toml's marshaler drops comments, and `config` may not import `platform` (ARCHITECTURE §2). Decision: `config.SetKey` and `config.ResetKey` are pure text edits that use parser positions to change only the affected line: a commented-out key is uncommented, a reset comments the line out again, and everything else stays byte for byte. `server` does the atomic write through `platform.WriteFileAtomic`, then runs the normal reload path, so hand edits and modal edits follow one route. A folder for `export.dir` is a typed path, since a browser can't return one. The modal is its own `<hyphal-settings>` component sharing the overlay's dialog look, because `<hyphal-overlay>` is a filtered list.
+
 ## Agent decisions
 
 <!-- Append A-001, A-002, … below using the format in README §5. -->

@@ -14,7 +14,7 @@ P2-02 links decision ─▶ P2-07 core links ─▶ P2-08 UI links
 P2-03 screens decision ─▶ P2-11 stars · P2-12 jump palette · P2-16 history view
 P2-09 query parser (after P2-04) ─▶ P2-10 operators in filter + CLI
 independent: P2-13 scheduled export · P2-14 capture window · P2-25 drop to import · P2-20 sort children
-P2-24 drag-to-move
+P2-24 drag-to-move · P2-26 key rebinding
 P2-22 parity suite ─▶ P2-23 gate
 ```
 
@@ -136,6 +136,7 @@ Acceptance criteria:
 - AC1 Due logic and retention (fake clock) → `TestScheduledExport_DueAndKeep`.
 - AC2 `when = "quit"` exports when the server exits → `TestScheduledExport_OnQuit`.
 - AC3 `hyphal export --scheduled` exports only when due → `TestCLI_ExportScheduled`.
+- AC4 The settings modal has a Scheduled export section with every `export.*` key (§4.8) → `settings export section` (e2e).
 
 ### P2-14 · Capture window
 Type: impl · Packages: `internal/cli`, `internal/server`, `internal/web`, `docs/`, `packaging/` · Spec: §4.7 (capture window)
@@ -185,6 +186,15 @@ Deliverables: dropping an `.opml` or `.md` file on the window imports it under t
 Acceptance criteria:
 - AC1 A dropped OPML file imports under the zoom, and one Ctrl+Z removes it → `drop import` (e2e).
 - AC2 A dropped image or JSON file changes nothing → `drop refused` (e2e).
+
+### P2-26 · Key rebinding in settings
+Type: impl · Packages: `internal/server`, `internal/web`, `internal/config` · Depends on: P1-48 · Spec: §4.8 (settings modal), §6.4
+Deliverables: the Keys section of the settings modal becomes editable, per context. Choosing a command captures the next key press and writes `[keys.<context>]` through `config.SetKey`. A conflict is refused on the spot and names the other command, a reserved key warns as in §6.4, Esc cancels the capture, and each command has a restore-default action besides the section's reset. Hand-written overrides appear in the list.
+Acceptance criteria:
+- AC1 A captured key works at once in every window and is written to `config.toml`, keeping its comments → `key rebind` (e2e), `TestSetKey_KeysTable`.
+- AC2 A conflicting key changes nothing and names the other command; a reserved key warns → `key rebind conflict` (e2e).
+- AC3 Esc during capture cancels, and doesn't close the modal → `key rebind cancel` (e2e).
+- AC4 Restore default removes the override → `key rebind restore` (e2e).
 
 ### P2-22 · Parity suite for Phase 2 rows
 Type: impl · Packages: `e2e/` · Spec: §3 (Phase 2 rows)

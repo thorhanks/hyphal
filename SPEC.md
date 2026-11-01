@@ -173,7 +173,7 @@ Body text is about 16.5 px at line height 1.5. The bundled `light` theme uses th
 
 The identity lives in shapes, so it survives any theme: threads, spore bullets and icons use only theme colors.
 
-- **Icons.** A custom hand-drawn set in `internal/web/assets`: each icon is a recognizable shape drawn as one thread that ends in a small accent-colored tip. The set covers home, search, star, trash, history, page and commands, and grows with new features. No icon font or icon library.
+- **Icons.** A custom hand-drawn set in `internal/web/assets`: each icon is a recognizable shape drawn as one thread that ends in a small accent-colored tip. The set covers home, search, star, trash, history, page, commands and settings, and grows with new features. No icon font or icon library.
 
 - **Centered reading column.** Text width is capped by the `--column` token (default 80 characters) and centered in wide windows. Breadcrumbs and status sit inside the same column.
 - **Inline formatting rendered, markers concealed.** `**bold**` shows as bold; the markers appear only on the bullet being edited, as in Obsidian's live preview (§5.8).
@@ -209,8 +209,8 @@ The identity lives in shapes, so it survives any theme: threads, spore bullets a
 
   Size, spacing, font, radius, glyph and motion tokens are listed in `tokens.css`.
 - **Contrast.** Both bundled themes meet WCAG AA for text and muted text. A test checks this for `light` and `dark`.
-- **Overlays** are native `<dialog>` elements (palettes, help, backlinks), floating and centered, with a title and the accent border.
-- **Restraint.** No splash screen, formatting toolbar or busy status bar. The chrome is breadcrumbs, the save dot, one footer row, a quiet icon strip in the header (search, stars, history, Trash, commands) and icons on the focused row (page, star, Trash). Icons appear once their feature exists. Every icon action also has a key, and the mouse is never required. Instant response is part of the look (§9.4).
+- **Overlays** are native `<dialog>` elements (palettes, help, backlinks, settings), floating and centered, with a title and the accent border.
+- **Restraint.** No splash screen, formatting toolbar or busy status bar. The chrome is breadcrumbs, the save dot, one footer row, a quiet icon strip in the header (search, stars, history, Trash, commands, settings) and icons on the focused row (page, star, Trash). Icons appear once their feature exists. Every icon action also has a key, and the mouse is never required. Instant response is part of the look (§9.4).
 - **Reference screens** are part of the spec before Phase 1 ends: a laptop window, a full-screen ultrawide, a deep zoom, an active filter, and a light theme. Phase 1's exit gate includes a side-by-side review against Workflowy.
 
 ### 4.7 At home on the desktop
@@ -220,7 +220,7 @@ Omarchy is *omakase*: one beautiful, opinionated default, keyboard first, themed
 **Omakase defaults**
 
 - One carefully tuned default look and keymap. Settings exist for real needs (density, keymap), not for every pixel; everything else is a theme or a line in `user.css`.
-- No settings screen. "Edit settings" in the command palette opens the commented `config.toml` in the built-in plain-text editor and reloads it on save.
+- Settings have one screen, the settings modal (§4.8), and one store, `config.toml`. The modal writes the file and keeps its comments. The file stays plain text for anyone who prefers an editor; the app has no text editor for it of its own, and reloads it whenever it changes.
 
 **Shared keyboard conventions**
 
@@ -243,6 +243,14 @@ Phase 1 needs these screens besides the outline and the page. Later-phase screen
 
 - **Trash view** (full page, §8.3): one row per deletion, newest first: the deleted bullet's text, its former breadcrumb, the descendant count and the age. Enter previews the subtree read-only; `r` restores; `d` purges that deletion after a confirmation (purging is final, so purge and Empty Trash are the only actions in the app that ask for confirmation); Esc returns to the outline.
 - **Help overlay** (F1, `?`): every command in the current context with its key, generated from the keymap (§6.4), filterable by typing.
+- **Settings modal** (the settings icon at the end of the header's icon strip, Ctrl+, or "Settings" in the command palette): a centered `<dialog>` with a title, a close button and one scrolling column of titled sections, wider than the palettes and built from native form controls styled only with theme tokens:
+  - *Appearance:* theme (bundled themes, plus every file in `themes/`), density, glowing thread.
+  - *Data:* Trash days, snapshots kept. Phase 2 adds a *Scheduled export* section with the `export.*` keys.
+  - *Startup:* browser, default database. A note says these apply at the next launch.
+  - *Keys:* in Phase 1, the current keymap read-only, with a note that overrides go in `[keys.<context>]`. In Phase 2, each command can be rebound by pressing a key, with the checks in §6.4 shown on the spot.
+  - *Footer:* the path of `config.toml`.
+
+  **A change applies at once.** There is no Save button: each control takes effect and writes `config.toml` as soon as it changes, so a new theme or density shows behind the modal, in every window. Text and number fields commit on Enter or blur. An invalid value shows an error beside the field and is not written. Esc, the close button or the settings key closes the modal and focus returns where it was. Each section has "Reset to defaults", which needs no confirmation because every value is easy to set again. If the file is invalid (§13) or can't be written, the modal says so and its controls are disabled until that is fixed, so it never overwrites a file you are midway through editing. Settings aren't part of the outline, so they aren't on the undo stack and they still work on a read-only database.
 - **Color picker** (`c` in block selection, or the command palette): an overlay listing the eight colors as swatches with their names, plus "No color". `1`–`8` (and `0` for No color) or arrows and Enter choose; Esc cancels.
 - **Read-only mode** (newer schema or failed integrity check): a persistent banner says why; everything works except changes, and any editing key shows a hint instead.
 
@@ -453,6 +461,7 @@ This section is the only place key bindings are defined. Other sections name com
 | --- | --- | --- |
 | Help overlay | `?` in block selection, F1 | F1 needs Fn on Mac laptops |
 | Command palette | Ctrl+P | Replaces the browser's print |
+| Settings | Ctrl+, | Cmd+, on macOS; opens and closes the settings modal (§4.8) |
 | Jump palette (Phase 2) | Ctrl+K | |
 | Undo / redo | Ctrl+Z / Ctrl+Y, Ctrl+Shift+Z | Always the app's stack, never the browser's (§5.6) |
 | (Save) | Ctrl+S | Nothing to save; shows "Saved automatically" |
@@ -518,7 +527,7 @@ This section is the only place key bindings are defined. Other sections name com
 
 **Page** (§5.7): the text-editing keys for movement, selection, clipboard and wrapping, across the whole page. Enter inserts a newline and continues a list, Tab inserts two spaces, Ctrl+Enter follows the link at the cursor, Ctrl+F opens the page's find bar, and Esc saves and returns to the outline, in block selection on the page's bullet. Redo is Ctrl+Y on Linux and Cmd+Shift+Z on macOS, as in the outline.
 
-**Overlays:** typing filters the list; Up/Down move; Enter chooses; Esc closes. In the color picker, `1`–`8` choose a color directly and `0` removes it.
+**Overlays:** typing filters the list; Up/Down move; Enter chooses; Esc closes. In the color picker, `1`–`8` choose a color directly and `0` removes it. In the settings modal keys go to its form controls: Tab moves between them and Esc closes.
 
 **Trash view** (§4.8): Up/Down move; Enter previews the deletion; `r` restores it; `d` purges it after confirmation; Esc returns to the outline.
 
@@ -529,7 +538,7 @@ This section is the only place key bindings are defined. Other sections name com
 - **The rest are canceled.** The app calls `preventDefault` for its bindings (Ctrl+P, Ctrl+F, Ctrl+S and so on). Native text behavior is left alone wherever the app has no rule for it.
 - **Native undo is disabled for bullets.** `beforeinput` `historyUndo` and `historyRedo` route to the app's stack, including from menus.
 - **Compositors.** Super combinations under Hyprland and Ctrl+arrows under macOS Spaces are never used by default.
-- **Keys are configurable** in TOML, per context. The same checks run when the config loads; on a conflict the app keeps the default binding for that command and shows a banner.
+- **Keys are configurable** in TOML, per context, and from Phase 2 in the settings modal (§4.8). The same checks run when the config loads; on a conflict the app keeps the default binding for that command and shows a banner.
 - **Human key matrix.** `/keyprobe` (development builds and `hyphal serve --dev`) lists every binding and which ones reach the page. It is recorded by hand for Chromium in a tab and an app window, Firefox and Safari, because automated tests bypass browser-level shortcuts.
 
 ### 6.5 Mouse
@@ -819,7 +828,7 @@ CREATE INDEX ops_by_change_set ON ops(change_set_id);
 | CLI | Cobra | Shared by quick capture, scripting and agents |
 | Database | `modernc.org/sqlite` | Pure Go; no C toolchain, so cross-builds stay simple. Online backup API verified in P0-05 |
 | Text | `rivo/uniseg` | Grapheme boundaries for search matches; the browser uses `Intl.Segmenter` |
-| Page editor | CodeMirror 6 (MIT) | Live preview and the plain-text settings editor (§5.7). Committed, prebuilt vendor files, embedded like other assets, rebuilt only on upgrade, and loaded when the first page opens. Parses Markdown and highlights code in the browser, colored by theme tokens through CSS classes. Go never renders Markdown |
+| Page editor | CodeMirror 6 (MIT) | Live preview (§5.7). Committed, prebuilt vendor files, embedded like other assets, rebuilt only on upgrade, and loaded when the first page opens. Parses Markdown and highlights code in the browser, colored by theme tokens through CSS classes. Go never renders Markdown |
 | Fuzzy matching | A Go fuzzy-finder library such as `sahilm/fuzzy` | Jump and command palettes, on the server |
 | Import / export | `encoding/json`, `encoding/xml`, small list parser | JSON, OPML, Markdown |
 | Config | TOML (`pelletier/go-toml/v2`) | Platform paths per §7.1 |
@@ -933,7 +942,6 @@ Obsidian's best ideas apply here to nodes rather than files.
 - **Image attachments:** paste or drop an image onto a page. It is stored in the database, served from the app itself, undoable, included in JSON export, and written as files by Markdown export.
 - **`hyphal://` links:** Copy link to node can give a link that opens Hyphal from another app, through a scheme handler in the `.desktop` file (Linux).
 - **Print and PDF:** a print stylesheet renders a whole page or zoom, so the browser's print dialog gives a clean PDF. Ctrl+P stays the command palette; "Print…" is a palette command.
-- **Theme picker:** a palette command lists themes with a live preview. The choice is per device, and overrides the `theme` setting until changed.
 
 ### 10.2 CLI and agent interface
 
@@ -992,9 +1000,9 @@ Six phases, each with an exit gate:
 | Phase | Scope | Exit gate |
 |---|---|---|
 | **0 · Storage and browser foundations** | Schema, history, JSON round trip; server skeleton, protocol, outline component, key matrix | Export and import are identical; a crash loses at most the unsealed typing; the outline skeleton passes in all three engines |
-| **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages with live preview, formatting; theming, palettes, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side visual review passes |
-| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; drag-to-move, mouse selection, drop-to-import, jump palette, history; scheduled export, capture window | Every *Must* row of the parity checklist works |
-| **3 · Knowledge and web extras** | Backlinks, link previews, saved searches, templates; image attachments, `hyphal://` links, print and PDF, theme picker | Backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs; a pasted image survives export and restore |
+| **1 · Minimum lovable Workflowy clone** | Editing rules, block selection, pages with live preview, formatting; theming, palettes, settings modal, CLI, quick capture, Workflowy import | A week of daily use on your own outline; side-by-side visual review passes |
+| **2 · Full Workflowy parity** | Tags, node links, search operators, stars; drag-to-move, mouse selection, drop-to-import, jump palette, history; scheduled export, capture window, key rebinding in settings | Every *Must* row of the parity checklist works |
+| **3 · Knowledge and web extras** | Backlinks, link previews, saved searches, templates; image attachments, `hyphal://` links, print and PDF | Backlinks list every linking bullet and page; a saved search reopens with the same results; a template instantiates with new IDs; a pasted image survives export and restore |
 | **4 · Agent integration** | Batch `apply`, `forget`, agent usage guide, richer queries | An agent completes a scripted multi-step task with `apply` and the usage guide, and one `hyphal revert` undoes it as a unit |
 | **5 · Multi-device sync** | Device IDs, HLC merge, per-device logs, compaction; any-folder sync (iCloud Drive, Syncthing) | Two machines edit offline and converge with nothing lost |
 
@@ -1083,10 +1091,11 @@ Future and exploratory, with no phase: reaching this same web UI from a phone ov
 | 54 | Mouse | Clicks and scrolling move to Phase 1 | §6.5 |
 | 56 | Drag-to-move | Native drag and drop in Phase 2, with every move still available from the keyboard | §6.5 |
 | 57 | Design style | Mycelium colors, Literata and Fraunces, hand-drawn thread icons, ruled threads with a lit focus path, Lit strands collapsed bullets, spore dots for expanded and leaf bullets, optional glowing thread, header and focused-row icons | §4.3, §4.6 |
-| 58 | External editor | Cut the `$EDITOR` round trip: all editing happens in the app. Edit settings uses the built-in plain-text editor | §4.7, §5.7 |
+| 58 | External editor | Cut the `$EDITOR` round trip: all editing happens in the app. The settings part is superseded by row 62 | §4.7, §5.7 |
 | 59 | Pages | Obsidian-style live preview on CodeMirror 6 replaces view and edit modes, position sync and split view. goldmark and chroma are gone. Proven by spike P0-W2 | §5.7, §9.1 |
 | 60 | Web review | Stable port per database; any window edits; page address, find bar and separate title field; pages send text on a short delay; CodeMirror loads on demand; no images in Phase 1; `column_width`, `footer`, `[tag_colors]` and the terminal capture prompt cut; 80-character column | §4–§9, §13 |
-| 61 | Web additions | Phase 1: zoom animation, clickable Undo, paste URL as link, rich copy, `hyphal open`. Phase 2: mouse selection, drop-to-import. Phase 3: link previews, attachments, `hyphal://`, print and PDF, theme picker | §4–§11 |
+| 61 | Web additions | Phase 1: zoom animation, clickable Undo, paste URL as link, rich copy, `hyphal open`. Phase 2: mouse selection, drop-to-import. Phase 3: link previews, attachments, `hyphal://`, print and PDF. The theme picker is superseded by row 62 | §4–§11 |
+| 62 | Settings | A settings modal, opened from a header icon or Ctrl+, replaces the plain-text settings editor and the Phase 3 theme picker. Changes apply and save at once to `config.toml`, which keeps its comments and can still be edited by hand. Keys are read-only there in Phase 1 and rebindable in Phase 2 | §4.7, §4.8, §6.4, §13 |
 | 55 | Cut features | Glyph ASCII fallbacks, terminal matrix, kitty, tmux, OSC sequences, Bubble Tea stack, wrap-layout engine, `zoom_transition`, `glyphs`, `background`, `mouse` settings | §4, §6.4, §13 |
 
 ### 12.3 Still open
@@ -1123,7 +1132,7 @@ Future and exploratory, with no phase: reaching this same web UI from a phone ov
 
 ## 13. Configuration reference
 
-`config.toml` (§7.1) is optional; every key has a default. "Edit settings" opens it commented, listing every key below (§4.7).
+`config.toml` (§7.1) is optional; every key has a default. The settings modal (§4.8) edits every key below. When it first writes a missing file, it creates the file commented, listing every key.
 
 | Key | Default | Meaning | Section |
 | --- | --- | --- | --- |
@@ -1140,4 +1149,4 @@ Future and exploratory, with no phase: reaching this same web UI from a phone ov
 | `export.dir` | `<data dir>/exports` | Scheduled export folder | §7.5 |
 | `export.keep` | `10` | Scheduled exports kept | §7.5 |
 
-- **Invalid config:** at launch, invalid keys fall back to their defaults and a banner names the file and line. On reload after "Edit settings", an invalid file is ignored entirely: the previous config stays in effect, with the same banner. Unknown keys produce a warning, not an error.
+- **Invalid config:** at launch, invalid keys fall back to their defaults and a banner names the file and line. When the file changes while the app runs, an invalid file is ignored entirely: the previous config stays in effect, with the same banner, and the settings modal stays disabled until the file is fixed. Unknown keys produce a warning, not an error, and the modal leaves them in the file.

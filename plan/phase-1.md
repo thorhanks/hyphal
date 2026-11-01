@@ -22,7 +22,7 @@ Wave E (web base):         P1-29 theming → P1-30 shell and lifecycle → P1-31
 Wave F (web features):     P1-35 block selection · P1-36 collapse/zoom · P1-37 undo · P1-38 overlays+palette+help
                            P1-39 pickers + o · P1-40 filter UI · P1-41 clipboard/paste · P1-42 CodeMirror bundle
                            P1-43 page screen · P1-45 Trash view
-Wave G (robustness):       P1-46 windows/read-only/reload · P1-47 durability · P1-48 config · P1-49 first run
+Wave G (robustness):       P1-46 windows/read-only/reload · P1-47 durability · P1-48 settings · P1-49 first run
 Wave H (ship + gate):      P1-50 packaging/docs · P1-51 benchmarks · P1-52 reference screens · P1-53 Workflowy import (human)
                            P1-54 parity suite · P1-55 interaction matrix · P1-56 gate
 ```
@@ -42,7 +42,8 @@ Deliverables:
 - `Config` struct with every key in §13 and its default; `Paths` (data dir, config file, db, snapshots, exports, runtime dir) per CONTRACTS §9 with `XDG_*` and macOS rules (detect with `runtime.GOOS`).
 - `Load(path) (Config, []Problem, error)`: missing file → defaults, no problem. Invalid values → that key falls back to default, `Problem{Line, Key, Message}`. Unknown keys → `Problem{Severity: Warning}`. TOML syntax error → all defaults + one problem with the line.
 - `Reload(path, previous) (Config, []Problem)`: if any error-severity problem exists, return `previous` unchanged (§13 "an invalid file is ignored entirely").
-- `CommentedTemplate() string`: a full `config.toml` listing every key commented out with its default and a one-line explanation (§4.7, §13). Written when "Edit settings" opens a missing file (P1-48).
+- `CommentedTemplate() string`: a full `config.toml` listing every key commented out with its default and a one-line explanation (§13). Written when the settings modal first changes a key and the file is missing (P1-48).
+- `SetKey(text, key, value string) (string, error)` and `ResetKey(text, key string) (string, error)`: pure text edits per D-048. They change only the affected line and return an error on invalid TOML or a value that fails the key's validation.
 - `[keys.<context>]` parsing: `command_id = "key"` or `["key1","key2"]`; returned raw as `Keys map[string]map[string][]string` (config does not import `keymap`; validation happens in `keymap.WithOverrides`, wired in P1-48).
 - `browser` and `theme` per §13.
 
@@ -53,6 +54,7 @@ Acceptance criteria:
 - AC4 Reload with an invalid file keeps the previous config and returns the problem → `TestReload_InvalidKeepsPrevious`.
 - AC5 Linux paths honor `XDG_DATA_HOME`/`XDG_CONFIG_HOME`; macOS data dir is `~/Library/Application Support/hyphal` while config stays `~/.config/hyphal` → `TestPaths_Linux`, `TestPaths_Darwin` (inject GOOS).
 - AC6 `CommentedTemplate()` parses as valid TOML and, uncommented, equals the defaults → `TestTemplate_MatchesDefaults`.
+- AC7 `SetKey` and `ResetKey` keep comments, blank lines, unknown keys and all other lines byte for byte, for top-level and dotted keys, and uncomment or comment out a template line → `TestSetKey_PreservesFile`.
 
 ### P1-02 · `dialect`: shared Markdown list dialect
 Type: impl · Packages: `internal/dialect` · Depends on: P0-16, P0-02 · Spec: §7.5 (dialect), §5.4 (leading markers), §5.5
@@ -594,7 +596,7 @@ Type: impl · Packages: `internal/web`, `internal/server` · Depends on: P1-30, 
 Deliverables:
 - `<hyphal-overlay>` on native `<dialog>`: title, filter input, list with highlight, width from a token; typing filters (fuzzy on the server through `query`, stale results dropped), Up/Down move, Enter chooses, Esc closes, click chooses, focus returns where it was.
 - Command palette (Ctrl+P): every command available in the current context with its binding right-aligned, recently used first (`palette_recent`). Running a command executes it in the context it was opened from.
-- Palette-only commands in Phase 1: Collapse all, Delete page, Bold (bullets), Italic (bullets), Color…, Edit settings, Empty Trash, Open Trash.
+- Palette-only commands in Phase 1: Collapse all, Delete page, Bold (bullets), Italic (bullets), Color…, Empty Trash, Open Trash.
 - Help overlay (F1, `?` in block selection): all commands in the current context grouped by context with their keys, generated from the keymap, filterable.
 
 Acceptance criteria:
@@ -715,16 +717,26 @@ Acceptance criteria:
 - AC5 Snapshot taken when due at start and on the 60 s tick (fake clock) → `TestDurability_SnapshotTimer`.
 - AC6 The first state is sent before `quick_check` completes (check blocked by a test hook) → `TestStartup_QuickCheckAfterFirstState`.
 
-### P1-48 · Config in the UI
-Type: impl · Packages: `internal/server`, `internal/web` · Depends on: P1-01, P1-38, P1-43 · Spec: §4.7, §13, §6.4 (keymap config)
+### P1-48 · Settings modal and config in the UI
+Type: impl · Packages: `internal/server`, `internal/web`, `internal/keymap` · Depends on: P1-01, P1-05, P1-29, P1-38 · Spec: §4.7, §4.8 (settings modal), §13, §6.4 (keymap config), CONTRACTS §12 · D-048
 
-Deliverables: apply config at startup (theme, density, thread glow, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; palette "Edit settings": write `CommentedTemplate()` if the file is missing, open it in CodeMirror as plain text, without live preview, and `Reload` on save or when the file changes (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
+Deliverables: apply config at startup (theme, density, thread glow, trash days, snapshot keep, keys); invalid config banner `"config.toml line N: <message> · using defaults for those keys"`; `Reload` when the file changes, polled like themes (invalid → keep previous + banner); keymap overrides validated (`keymap.WithOverrides`): conflicts keep the default for that command + banner, reserved keys warn (§6.4).
+
+Settings modal: `<hyphal-settings>` on native `<dialog>`, with the sections in §4.8, CSS from tokens only. Opened by a thread-drawn settings icon at the end of the header strip (same style as the mockup's set, `lib/glyphs.js`), Ctrl+, / Cmd+, (command `settings`, added to the keymap so `/keyprobe` covers it) and palette "Settings". The server handles the `settings` and `setting` messages: validate → `config.SetKey` or `ResetKey` (from `CommentedTemplate()` if the file is missing) → `platform.WriteFileAtomic` → reload → push to all windows. The theme list is the bundled themes plus `themes/*.css`, refreshed when the modal opens.
 
 Acceptance criteria:
 - AC1 `density = "compact"` applies → `config applied` (e2e).
 - AC2 Invalid value → banner naming the line; valid keys still applied → `TestConfig_InvalidBanner`.
-- AC3 Saving an invalid file keeps the previous config and shows the banner → `TestConfig_ReloadInvalid`.
+- AC3 Changing the file to something invalid keeps the previous config and shows the banner → `TestConfig_ReloadInvalid`.
 - AC4 Key override `toggle_complete = "y"` in `[keys.block]` works; a duplicate keeps the default and shows the banner → `key overrides` (e2e).
+- AC5 The icon, Ctrl+, and palette "Settings" each open the modal; Esc, the close button and Ctrl+, close it, and focus and caret return → `settings open close` (e2e).
+- AC6 Changing theme, density or thread glow restyles this window and a second one with no reload and no Save → `settings apply live` (e2e).
+- AC7 A change writes `config.toml` and keeps a hand-written comment; a missing file is created from the template; the value survives a restart → `TestSettings_WritesFile`.
+- AC8 An invalid `trash_days` shows an error beside the field and leaves the file unchanged → `settings invalid value` (e2e), `TestSettings_RejectsInvalid`.
+- AC9 While the file is invalid or unwritable, the controls are disabled, the modal says why, and the file isn't written; fixing the file re-enables them without a reload → `settings locked` (e2e).
+- AC10 "Reset to defaults" restores only its section → `TestSettings_ResetSection`.
+- AC11 Every §13 key available in Phase 1 has a control, except `[keys.*]`, which is listed read-only → `TestSettings_CoversEveryKey`.
+- AC12 Controls are labeled and reachable by Tab, and the dialog is named → `settings a11y` (e2e). A database opened read-only still allows settings → `settings on read-only` (e2e).
 
 ### P1-49 · First run and Inbox refresh
 Type: impl · Packages: `internal/server` · Depends on: P1-22, P1-46 · Spec: §4.5 (first run), §6.3
