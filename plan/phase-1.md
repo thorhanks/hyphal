@@ -137,6 +137,8 @@ Acceptance criteria:
 ### P1-09 · Store: snapshots
 Type: impl · Packages: `internal/store` · Depends on: P0-06, P1-05 · Spec: §8.5, §7.4 · CONTRACTS §9 · D-014
 
+Already done in P0-15 (A-012): `Snapshot`, `ListSnapshots` and the `.tmp` → `quick_check` → rename path, with `TestSnapshot_Verified`. Still to do: delete leftover `.tmp` files older than a day.
+
 Deliverables: `Snapshot(reason)` (backup API to `*.tmp`, `quick_check` on the copy, rename, 0600; on failure delete and return error), `SnapshotIfDue` (due when the newest good snapshot is > 24 h old **and** the outline changed since it — compare max `change_sets.at` with `meta.last_snapshot_at`), retention (`keep` per DB name; daily snapshots count toward keep; pre-* snapshots too — keep the newest N overall, D-014), `ListSnapshots`, `RestoreSnapshot(name)` (after the copy, sets `meta.last_history_epoch` above its value before the restore, A-009; refuse with `ErrServerRunning` if another process holds the server lock; take `pre-restore` snapshot; copy the snapshot **into** the live DB with the backup API, never rename; record a change set with source `restore` and description `Restored snapshot <name>` and no ops; set a `meta` flag `restore_banner` = name so the UI can show the informational banner, §4.5).
 
 Acceptance criteria:

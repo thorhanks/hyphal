@@ -10,6 +10,7 @@ import (
 
 	"github.com/thorhanks/hyphal/internal/fracindex"
 	"github.com/thorhanks/hyphal/internal/ids"
+	"github.com/thorhanks/hyphal/internal/markup"
 	"github.com/thorhanks/hyphal/internal/model"
 	"github.com/thorhanks/hyphal/internal/store"
 )
@@ -308,8 +309,7 @@ func (t *Tree) Check() []Problem {
 				report(4, id, "live under trashed parent %s", n.ParentID)
 			}
 		}
-		// TODO(P0-16): use markup.ConvertLeadingMarker.
-		if strings.ContainsAny(n.Text, "\n\r") || store.HasLeadingMarker(n.Text) {
+		if rest, _ := markup.ConvertLeadingMarker(n.Text); strings.ContainsAny(n.Text, "\n\r") || rest != n.Text {
 			report(6, id, "bad text %q", n.Text)
 		}
 		if !ids.Valid(string(id)) {

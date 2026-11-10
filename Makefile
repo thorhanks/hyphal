@@ -1,7 +1,7 @@
 # Targets from plan/TESTING.md §1.
 GO ?= go
 
-.PHONY: test check fmt-check vet lint fuzz-short fuzz-long fuzz bench golden-update crash
+.PHONY: test check fmt-check vet lint fuzz-short fuzz-long fuzz bench golden-update crash crash-long
 
 test:
 	$(GO) test -race -count=1 ./...
@@ -45,3 +45,7 @@ golden-update:
 
 crash:
 	$(GO) test -tags crash -count=1 -run '^TestCrash' ./...
+
+# Nightly: 2,000 kills of the typing child (plan/TESTING.md §7).
+crash-long:
+	CRASH_ITERATIONS=2000 $(GO) test -tags crash -count=1 -timeout 60m -run '^TestCrash_Typing$$' ./...

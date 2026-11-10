@@ -46,6 +46,10 @@ func WriteFileAtomic(path string, perm fs.FileMode, write func(io.Writer) error)
 	return syncDir(dir)
 }
 
+// SyncDir makes a rename in dir durable (§8.1). A filesystem that can't sync a
+// directory isn't a failure.
+func SyncDir(dir string) error { return syncDir(dir) }
+
 // syncDir makes a rename in dir durable. Some filesystems can't sync a directory,
 // which isn't a failure.
 func syncDir(dir string) error {

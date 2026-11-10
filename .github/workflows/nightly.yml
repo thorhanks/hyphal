@@ -18,6 +18,14 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: make fuzz-long
 
+  crash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: make crash-long
+
   bench:
     runs-on: ubuntu-latest
     steps:
