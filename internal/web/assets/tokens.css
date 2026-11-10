@@ -1,0 +1,34 @@
+/* Every design token and its default (§4.4, §4.6). The colors are the bundled
+   dark theme's. TODO(P1-29): the full token set, bundled fonts and themes. */
+@layer tokens {
+  :root {
+    color-scheme: dark;
+
+    --bg: #2c2824;
+    --raise: #37322c;
+    --text: #eee6d8;
+    --muted: #b3a896;
+    --thread: #75695a;
+    --accent: #e8b25c;
+
+    --font-text: "Literata", Georgia, serif;
+    --font-display: "Fraunces", Georgia, serif;
+    --font-code: ui-monospace, monospace;
+
+    --size-text: 16.5px;
+    --size-small: 0.84em;
+    --size-zoom: 1.55em;
+    --line-height: 1.5;
+
+    --column: 80ch;
+    --gutter: 16px;
+    --indent: 26px;
+    --glyph: 18px;
+    --dot: 5px;
+    --dot-big: 8px;
+    --gap: 8px;
+    --radius: 6px;
+    --space-1: 2px;
+    --space-2: 10px;
+  }
+}

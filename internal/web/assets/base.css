@@ -1,0 +1,23 @@
+/* Load first: the layer order is the theming contract (§4.4). */
+@layer reset, tokens, components, theme, user;
+
+@layer reset {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+  }
+}
+
+@layer components {
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-text);
+    font-size: var(--size-text);
+    line-height: var(--line-height);
+  }
+}
