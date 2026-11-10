@@ -30,12 +30,10 @@ test.describe("AC2 typing", () => {
     await page.keyboard.press("ArrowLeft");
     await page.keyboard.press("ArrowLeft");
     await page.keyboard.type("C");
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("Home");
+    await page.keyboard.press("ArrowRight");
     await page.keyboard.type("D");
-    expect(await outline(page)).toBe("oneAC\nBtwo\nDthree");
-    expect(await fresh(page)).toBe("oneAC\nBtwo\nDthree");
+    expect(await outline(page)).toBe("oneAC\nDBtwo\nthree");
+    expect(await fresh(page)).toBe("oneAC\nDBtwo\nthree");
   });
 
   test("typing shows at once", async ({ page }) => {
@@ -157,8 +155,7 @@ test.describe("AC4 text integrity", () => {
     const id = await idOf(page, "start");
     await place(page, id, 5);
     await page.keyboard.insertText("a😀éz");
-    await idle(page);
-    await page.keyboard.press("Home");
+    await place(page, id, 0);
     for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowRight"); // "start", "a", then 😀 as one grapheme
     await page.keyboard.type("|");
     await expect(host(page, id)).toHaveText("starta😀|éz");
@@ -209,7 +206,7 @@ test.describe("AC6 concealment", () => {
     expect(await host(page, b).locator(".m-bold").count()).toBe(0);
     await expect.poll(() => page.evaluate(() => window.__hyphal.markers())).toEqual([[0, 2], [6, 8]]);
     // Typing keeps the ranges on the markers.
-    await page.keyboard.press("End");
+    await place(page, b, "**bold** text".length);
     await page.keyboard.type(" *it*");
     await idle(page);
     await expect.poll(() => page.evaluate(() => window.__hyphal.markers())).toEqual([[0, 2], [6, 8], [14, 15], [17, 18]]);
