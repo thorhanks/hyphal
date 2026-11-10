@@ -36,6 +36,7 @@ type State struct {
 type Fixture struct {
 	Tree  *core.Tree
 	State State
+	Dump  *store.Dump // what Tree was built from, before any change
 	next  int
 }
 
@@ -123,6 +124,7 @@ func ParseOutline(s string) (*Fixture, error) {
 	if err != nil {
 		return nil, err
 	}
+	f.Dump = d
 	f.Tree = core.NewTree(d)
 	f.Tree.SetPages(d.Pages)
 	return f, nil

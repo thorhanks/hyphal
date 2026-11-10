@@ -79,7 +79,9 @@ func allowedInternal(rel string) ([]string, bool) {
 	case rel == "internal/archtest":
 		return nil, true
 	case rel == "cmd/hyphal":
-		return []string{"internal/cli"}, true
+		// The dev build's --seed also imports testgen; release builds, which this
+		// test checks, never do (A-013).
+		return []string{"internal/cli", "internal/server"}, true
 	}
 	return nil, false
 }
