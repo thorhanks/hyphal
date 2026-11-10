@@ -43,7 +43,7 @@ testdata/      # shared fixtures (OPML, Markdown, legacy DBs); per-package testd
 plan/          # this plan
 ```
 
-`internal/webspike` is the P0-W1 spike: reference only, deleted by P0-18. `internal/store/driverspike` stays as the driver benchmark (A-001). `core` may be split into files freely but stays one package unless a card says otherwise.
+The P0-W1 spike `internal/webspike` was deleted by P0-18; its report stays in `plan/reports/`. `internal/store/driverspike` stays as the driver benchmark (A-001). `core` may be split into files freely but stays one package unless a card says otherwise.
 
 ## 2. Import rules (enforced by a test)
 

@@ -1,3 +1,5 @@
 [tools]
 go = "1.27.3"
 golangci-lint = "2.15.0"
+# Playwright's installer hung under Node 26 (plan/TESTING.md §2).
+node = "22"

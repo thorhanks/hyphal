@@ -93,7 +93,7 @@ h.DB()                               // *store.DB to assert history rows
 - Playwright, TypeScript-free: tests are plain `.mjs` files, matching the no-build rule.
 - `e2e/helpers.mjs` starts `hyphal serve --dev --seed <fixture>` per test, with every path under a temp directory, and opens it with the launch ticket. `--dev` exposes `window.__hyphal` for reading state and enables `/keyprobe`; release builds exclude both with a build tag.
 - Fixtures use the notation of CONTRACTS §11. Helpers: `place(page, id, offset)`, `outline(page)`, `cursorIs(page, id, offset)`, `footer(page)`, `idle(page)`.
-- `internal/webspike/e2e/` is the starting point (P0-18 ports it, then deletes the spike).
+- P0-18 ported the spike's tests that apply so far. `global-setup.mjs` builds the dev binary once into `e2e/.bin/`. Fixtures for `--seed` use the notation; a file starting with `{` is a JSON export.
 - Every card that adds a key adds a browser test tagged in its title with `@command@context` (§9 below).
 - Measurements use `page.evaluate` with `requestAnimationFrame` plus a task, and only report.
 - Automated keys bypass browser-level shortcuts, so reserved keys are checked by hand (`/keyprobe`). Firefox and WebKit have no CDP composition events; those tests are Chromium only, and real IME use is a human check.

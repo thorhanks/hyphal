@@ -1,12 +1,12 @@
 # Targets from plan/TESTING.md §1.
 GO ?= go
 
-.PHONY: test check fmt-check vet lint fuzz-short fuzz-long fuzz bench golden-update crash crash-long
+.PHONY: test check fmt-check vet lint web-lint e2e e2e-update fuzz-short fuzz-long fuzz bench golden-update crash crash-long
 
 test:
 	$(GO) test -race -count=1 ./...
 
-check: fmt-check vet lint test fuzz-short
+check: fmt-check vet lint test fuzz-short web-lint
 
 fmt-check:
 	@files="$$(git ls-files -co --exclude-standard '*.go')"; \
@@ -15,9 +15,24 @@ fmt-check:
 
 vet:
 	$(GO) vet ./...
+	$(GO) vet -tags dev ./...
 
 lint:
 	golangci-lint run
+	golangci-lint run --build-tags dev
+
+# The web asset checks (plan/TESTING.md §6); no Node needed.
+web-lint:
+	$(GO) test -count=1 -run '^TestWebAssets_' ./internal/web
+
+# Playwright on Chromium, Firefox and WebKit (plan/TESTING.md §5). Needs Node
+# from mise.toml and the browsers: `cd e2e && npx playwright install`.
+# E2E_ARGS passes options through, e.g. E2E_ARGS="--project=chromium".
+e2e:
+	cd e2e && npm ci --no-audit --no-fund --loglevel=error && npx playwright test $(E2E_ARGS)
+
+e2e-update:
+	@$(MAKE) --no-print-directory e2e E2E_ARGS="--update-snapshots $(E2E_ARGS)"
 
 fuzz-short:
 	@$(MAKE) --no-print-directory fuzz FUZZTIME=10s

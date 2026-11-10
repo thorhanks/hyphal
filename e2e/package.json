@@ -1,0 +1,12 @@
+{
+  "name": "hyphal-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests (plan/TESTING.md §5). Development only; nothing here ships.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1"
+  }
+}
