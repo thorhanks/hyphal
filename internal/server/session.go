@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"runtime"
 	"slices"
 	"time"
 
 	"github.com/thorhanks/hyphal/internal/core"
+	"github.com/thorhanks/hyphal/internal/keymap"
 	"github.com/thorhanks/hyphal/internal/markup"
 	"github.com/thorhanks/hyphal/internal/model"
 	"github.com/thorhanks/hyphal/internal/store"
@@ -25,7 +27,10 @@ const (
 type SessionOptions struct {
 	Version string
 	Clock   func() time.Time
-	Dev     bool // the page may load window.__hyphal (TESTING §5)
+	Dev     bool // the page may load window.__hyphal and /keyprobe (TESTING §5)
+	// Platform resolves Mod in the keymap (§6.4): keymap.Linux or
+	// keymap.MacOS. Default: this machine's, as the browser runs here too.
+	Platform string
 }
 
 // Session is the one editing session of a server: one core.Outline and one
@@ -36,6 +41,8 @@ type Session struct {
 	o       *core.Outline
 	db      *store.DB
 	opts    SessionOptions
+	keys    keymap.Table // resolved for opts.Platform
+	keyJSON json.RawMessage
 	windows []*Window
 }
 
@@ -57,8 +64,15 @@ func NewSession(o *core.Outline, db *store.DB, so SessionOptions) *Session {
 	if so.Clock == nil {
 		so.Clock = time.Now
 	}
-	return &Session{o: o, db: db, opts: so}
+	if so.Platform == "" {
+		so.Platform = keymap.Platform(runtime.GOOS)
+	}
+	keys := keymap.Defaults().Resolve(so.Platform) // TODO(P1-01): overrides from config.toml
+	return &Session{o: o, db: db, opts: so, keys: keys, keyJSON: keys.JSON()}
 }
+
+// Keymap returns the keymap the windows get, resolved for the platform.
+func (s *Session) Keymap() keymap.Table { return s.keys }
 
 // Outline returns the session's outline.
 func (s *Session) Outline() *core.Outline { return s.o }
@@ -114,7 +128,7 @@ func (s *Session) Handle(ctx context.Context, w *Window, raw []byte) {
 			w.zoom = m.Zoom
 		}
 		s.send(w, welcomeMsg{
-			T: "welcome", Version: s.opts.Version, Keymap: []any{},
+			T: "welcome", Version: s.opts.Version, Keymap: s.keyJSON,
 			Config: config{Density: "comfortable"}, ReadOnly: s.readOnly(), Dev: s.opts.Dev,
 		})
 		s.sendState(w, 0, true)
@@ -174,6 +188,9 @@ func (s *Session) action(ctx context.Context, w *Window, m clientMsg) {
 		}
 		return
 	default:
+		if _, ok := s.keys.Command(keymap.CommandID(m.Name)); ok {
+			break // a command whose card hasn't wired it yet: only the state reply
+		}
 		s.send(w, errorMsg{T: "error", Code: "unknown_action", Message: msgUnknownName + m.Name})
 	}
 	s.sendState(w, m.Seq, true)

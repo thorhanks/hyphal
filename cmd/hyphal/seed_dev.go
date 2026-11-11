@@ -39,3 +39,9 @@ func seedFlag(fs *flag.FlagSet) func() (io.Reader, error) {
 		return bytes.NewReader(out), nil
 	}
 }
+
+// platformFlag adds --platform: resolve the keymap's Mod for linux or darwin
+// rather than this machine, so browser tests can check macOS keys (P0-19).
+func platformFlag(fs *flag.FlagSet) *string {
+	return fs.String("platform", "", "resolve key bindings for linux or darwin")
+}

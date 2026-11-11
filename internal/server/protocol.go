@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"unicode/utf16"
 
 	"github.com/thorhanks/hyphal/internal/markup"
@@ -25,12 +26,12 @@ type clientMsg struct {
 }
 
 type welcomeMsg struct {
-	T        string `json:"t"`
-	Version  string `json:"version"`
-	Keymap   []any  `json:"keymap"` // TODO(P0-19): keymap.Table.JSON
-	Config   config `json:"config"`
-	ReadOnly bool   `json:"readOnly"`
-	Dev      bool   `json:"dev,omitempty"` // dev builds with --dev: the page loads window.__hyphal (A-013)
+	T        string          `json:"t"`
+	Version  string          `json:"version"`
+	Keymap   json.RawMessage `json:"keymap"` // keymap.Table.JSON (CONTRACTS §12.2)
+	Config   config          `json:"config"`
+	ReadOnly bool            `json:"readOnly"`
+	Dev      bool            `json:"dev,omitempty"` // dev builds with --dev: the page loads window.__hyphal (A-013)
 }
 
 // config is what the page needs from config.toml (§13). TODO(P1-48): real values.

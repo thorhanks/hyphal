@@ -1,0 +1,48 @@
+@layer components {
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-text);
+    font-size: var(--size-text);
+    line-height: var(--line-height);
+  }
+
+  .keyprobe {
+    max-width: var(--column);
+    margin-inline: auto;
+    padding: var(--space-2) var(--gutter);
+
+    & .pad {
+      padding: var(--space-2);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      background: var(--raise);
+    }
+
+    & table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--size-small);
+    }
+
+    & th,
+    & td {
+      text-align: start;
+      padding: var(--space-1) var(--space-2);
+      border-bottom: 1px solid var(--thread);
+    }
+
+    & code {
+      font-family: var(--font-code);
+    }
+
+    & tr[data-reached="yes"] td:last-child {
+      color: var(--accent);
+    }
+
+    & .summary,
+    & tr[data-reached="no"] td:last-child {
+      color: var(--muted);
+    }
+  }
+}

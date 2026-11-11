@@ -44,6 +44,8 @@ export function install(app) {
       for (const m of now) conn.deliver(m);
     },
     send: (m) => conn.send(m),
+    /** The keymap from welcome, as sent (CONTRACTS §12.2). */
+    keymap: () => [...(view.keymap?.commands.values() ?? [])],
     /** Marker highlight ranges on the focused bullet, as UTF-16 offsets. */
     markers: () => {
       const h = view.host();

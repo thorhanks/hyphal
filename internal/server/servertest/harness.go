@@ -20,8 +20,9 @@ import (
 
 // Options configures a harness.
 type Options struct {
-	Outline string    // fixture notation (CONTRACTS §11); ‸ places the cursor
-	Clock   time.Time // default testgen.FixtureTime
+	Outline  string    // fixture notation (CONTRACTS §11); ‸ places the cursor
+	Clock    time.Time // default testgen.FixtureTime
+	Platform string    // keymap platform; default this machine's
 }
 
 // State is a state message as the browser receives it (CONTRACTS §12.2).
@@ -88,7 +89,7 @@ func New(t testing.TB, o Options) *Harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.sess = server.NewSession(outline, db, server.SessionOptions{Version: "test", Clock: clock})
+	h.sess = server.NewSession(outline, db, server.SessionOptions{Version: "test", Clock: clock, Platform: o.Platform})
 	h.join()
 	if f.State.Cursor != "" {
 		n, _ := outline.Tree().Node(f.State.Cursor)

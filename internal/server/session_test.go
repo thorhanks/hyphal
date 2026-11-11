@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/thorhanks/hyphal/internal/keymap"
 	"github.com/thorhanks/hyphal/internal/server/servertest"
 )
 
@@ -108,6 +109,50 @@ func TestSession_Markers(t *testing.T) {
 	if len(runs) != 1 || runs[0].Text != "b" || !slices.Equal(runs[0].Style, []string{"bold"}) || runs[0].Src != [2]int{2, 3} {
 		t.Errorf("runs = %+v", runs)
 	}
+}
+
+// The welcome carries the keymap resolved for the platform (CONTRACTS §12.2).
+func TestSession_WelcomeKeymap(t *testing.T) {
+	for _, tt := range []struct{ platform, undo string }{{keymap.Linux, "ctrl+z"}, {keymap.MacOS, "meta+z"}} {
+		h := servertest.New(t, servertest.Options{Outline: "- Alpha‸", Platform: tt.platform})
+		var w struct {
+			T      string `json:"t"`
+			Keymap []struct {
+				ID   string                          `json:"id"`
+				Keys []struct{ Context, Key string } `json:"keys"`
+			} `json:"keymap"`
+		}
+		if err := json.Unmarshal(h.Messages()[0], &w); err != nil || w.T != "welcome" {
+			t.Fatalf("first message %s: %v", h.Messages()[0], err)
+		}
+		found := false
+		for _, c := range w.Keymap {
+			for _, k := range c.Keys {
+				if strings.Contains(k.Key, "mod") {
+					t.Errorf("%s: unresolved %s on %s", tt.platform, k.Key, c.ID)
+				}
+				found = found || (c.ID == "undo" && k.Key == tt.undo)
+			}
+		}
+		if !found {
+			t.Errorf("%s: undo is not on %s", tt.platform, tt.undo)
+		}
+	}
+}
+
+// A command whose card hasn't wired it yet gets its state reply and no error.
+func TestSession_KnownCommandNotYetWired(t *testing.T) {
+	h := servertest.New(t, servertest.Options{Outline: "- Alpha‸"})
+	n := len(h.Messages())
+	h.Action("new_bullet", map[string]any{"off": 5, "end": 5})
+	msgs := h.Messages()[n:]
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages: %s", len(msgs), msgs)
+	}
+	if s := h.State(); s.Seq != 2 {
+		t.Errorf("reply seq = %d, want 2", s.Seq)
+	}
+	h.AssertOutline("- Alpha‸")
 }
 
 // Unknown action names change nothing, and still get their one reply.

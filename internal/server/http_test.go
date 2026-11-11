@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,11 +16,17 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/thorhanks/hyphal/internal/core"
+	"github.com/thorhanks/hyphal/internal/keymap"
 	"github.com/thorhanks/hyphal/internal/testgen"
 )
 
 // httpServer starts a server for a fresh session on a loopback port.
 func httpServer(t *testing.T, now *time.Time) (*Server, string) {
+	t.Helper()
+	return httpServerWith(t, now, SessionOptions{})
+}
+
+func httpServerWith(t *testing.T, now *time.Time, so SessionOptions) (*Server, string) {
 	t.Helper()
 	db := testgen.TempDB(t)
 	ctx := context.Background()
@@ -29,7 +37,8 @@ func httpServer(t *testing.T, now *time.Time) (*Server, string) {
 	}
 	ts := httptest.NewUnstartedServer(nil)
 	port := ts.Listener.Addr().(*net.TCPAddr).Port
-	s := New(NewSession(o, db, SessionOptions{Clock: clock}), []byte(strings.Repeat("k", 32)), port, false, clock)
+	so.Clock = clock
+	s := New(NewSession(o, db, so), []byte(strings.Repeat("k", 32)), port, false, clock)
 	ts.Config.Handler = s.Handler()
 	ts.Start()
 	stop, cancel := context.WithCancel(ctx)
@@ -209,5 +218,45 @@ func TestListen_LoopbackStablePort(t *testing.T) {
 	defer func() { _ = l2.Close() }()
 	if got := l2.Addr().(*net.TCPAddr).Port; got != firstPort(path)+1 {
 		t.Errorf("fallback port %d", got)
+	}
+}
+
+// /keyprobe and the dev assets exist only with --dev in a dev build
+// (§6.4 "Human key matrix").
+func TestHTTP_KeyprobeNeedsDev(t *testing.T) {
+	now := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
+	get := func(t *testing.T, s *Server, host, path string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, "http://"+host+path, nil)
+		req.AddCookie(&http.Cookie{Name: s.auth.cookieName(), Value: s.auth.cookieValue()})
+		res, err := (&http.Client{CheckRedirect: noRedirect}).Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = res.Body.Close() })
+		return res
+	}
+	s, host := httpServer(t, &now)
+	for _, p := range []string{"/keyprobe", "/keyprobe.json", "/assets/dev/keyprobe.html", "/assets/dev/hooks.js"} {
+		if res := get(t, s, host, p); res.StatusCode != http.StatusNotFound {
+			t.Errorf("without --dev, %s: %d", p, res.StatusCode)
+		}
+	}
+
+	s, host = httpServerWith(t, &now, SessionOptions{Dev: true, Platform: keymap.MacOS})
+	if res := get(t, s, host, "/keyprobe"); res.StatusCode != http.StatusFound || res.Header.Get("Location") != "/assets/dev/keyprobe.html" {
+		t.Errorf("/keyprobe: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	res := get(t, s, host, "/keyprobe.json")
+	var probe struct {
+		Platform string            `json:"platform"`
+		Reserved []string          `json:"reserved"`
+		Keymap   []json.RawMessage `json:"keymap"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&probe); err != nil {
+		t.Fatal(err)
+	}
+	if probe.Platform != keymap.MacOS || !slices.Contains(probe.Reserved, "meta+w") || len(probe.Keymap) != len(keymap.Defaults().Commands()) {
+		t.Errorf("keyprobe.json: %s, %v, %d commands", probe.Platform, probe.Reserved, len(probe.Keymap))
 	}
 }

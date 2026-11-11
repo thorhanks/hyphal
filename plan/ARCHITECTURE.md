@@ -319,11 +319,13 @@ func Write(w io.Writer, items []*Item, o WriteOptions) error // o.IDs, o.Header 
 package keymap
 type Context string // global, text, block, filter, page, overlay, trash
 type CommandID string
-type Binding struct { Context Context; Key string; Command CommandID }
-func Defaults() Table
+type Command struct { ID CommandID; Name string; Phase int; Contexts []Context; PaletteOnly, BlockSelectionCommand, Native, Hidden bool }
+type Binding struct { Context Context; Key string; Command CommandID; Platform string } // Platform "" = both
+func Defaults() Table                       // "mod" for both platforms
+func (t Table) Resolve(platform string) Table // linux or darwin: mod → ctrl or meta
 func (t Table) Lookup(ctx Context, key string) (CommandID, bool)  // context first, then global
 func (t Table) Validate() []Problem       // §6.4 rules
-func (t Table) WithOverrides(o map[string]map[string][]string) (Table, []Problem) // raw from config
+func (t Table) WithOverrides(o map[string]map[string][]string) (Table, []Problem) // raw from config (P1-01)
 func (t Table) JSON() []byte                 // sent to the browser at hello (CONTRACTS §12); also drives palette and help
 ```
 

@@ -282,6 +282,8 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
  "done":false,"task":false,"heading":false,"page":false,"star":false,"matches":[[3,8]]}
 ```
 
+`keymap` is `keymap.Table.JSON`, resolved for the platform (A-014): one entry per command, `{"id":"undo","name":"Undo","phase":1,"contexts":["global"],"paletteOnly"?,"block"?,"native"?,"hidden"?,"keys":[{"context":"global","key":"ctrl+z"}]}`. Keys use `internal/keymap`'s notation: modifiers in the order `ctrl`, `meta`, `alt`, `shift`, then a lowercase named key (`arrowup`, `escape`, `space`) or one character. A character carries its own shift (`Z`, `?`) unless ctrl, meta or alt is held; then letters are lowercase and `shift` is written (`ctrl+shift+z`). `native` keys are never canceled by the page.
+
 `Run`: `{"text":"…","src":[2,6],"style":["bold","italic"],"color":"red","href":"…"?}`. `src` is the run's range in the source text, so the client maps a click or a column in concealed text to a source offset (A-013). `dev` is present only in dev builds run with `--dev`, and tells the page to load `window.__hyphal`. Marker ranges for the focused row: `{"markers":[[0,2],[6,8]]}` on that row. `depth` is `-1` for the zoom heading. `hidden` is the number of descendants, present only on collapsed rows; `core.Tree` keeps subtree sizes so sending it costs no walk.
 
 ### 12.3 Rules
@@ -305,6 +307,7 @@ JSON text messages on one WebSocket at `/ws`, one socket per tab. Field names ar
 | `/ws` | The WebSocket |
 | `/assets/vendor/…` | CodeMirror files, requested only when a page opens |
 | `/internal/ticket` | `POST` from `hyphal` with the state file's secret; returns a new ticket |
-| `/keyprobe` | Key matrix page, `--dev` only |
+| `/keyprobe` | Key matrix page, dev builds with `--dev` only; redirects to `/assets/dev/keyprobe.html` |
+| `/keyprobe.json` | The probe's data: platform, resolved keymap, reserved keys |
 
 Every route checks `Host` against `127.0.0.1:<port>` and `localhost:<port>`; `/ws` and all non-GET routes also check `Origin`. All responses carry `Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (inline styles only for per-row `style` attributes set by script).

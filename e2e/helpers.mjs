@@ -12,10 +12,11 @@ export const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const binary = join(repo, "e2e", ".bin", "hyphal");
 
 /**
- * Starts `hyphal serve --dev --seed` on a fixture (CONTRACTS §11).
- * @param {{seed: string}} o
+ * Starts `hyphal serve --dev --seed` on a fixture (CONTRACTS §11), with the
+ * keymap resolved for `platform` (linux or darwin) when given.
+ * @param {{seed: string, platform?: string}} o
  */
-export async function start({ seed }) {
+export async function start({ seed, platform }) {
   const dir = mkdtempSync(join(tmpdir(), "hyphal-e2e-"));
   writeFileSync(join(dir, "seed.txt"), seed);
   const env = {
@@ -26,7 +27,9 @@ export async function start({ seed }) {
     XDG_RUNTIME_DIR: join(dir, "run"),
     HYPHAL_DB: join(dir, "data", "outline.db"),
   };
-  const proc = spawn(binary, ["serve", "--dev", "--seed", join(dir, "seed.txt")], { env, stdio: ["ignore", "pipe", "pipe"] });
+  const args = ["serve", "--dev", "--seed", join(dir, "seed.txt")];
+  if (platform) args.push("--platform", platform);
+  const proc = spawn(binary, args, { env, stdio: ["ignore", "pipe", "pipe"] });
   let stderr = "";
   proc.stderr.on("data", (d) => (stderr += d));
   const exited = new Promise((resolve) => proc.on("exit", resolve));

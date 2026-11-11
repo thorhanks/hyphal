@@ -2,6 +2,7 @@
 // to the outline. TODO(P1-30): the full shell, banners, save indicator and
 // reconnect.
 
+import { Keymap } from "../lib/keys.js";
 import { Connection } from "../lib/protocol.js";
 import { strings } from "../lib/strings.js";
 import "./outline-view.js";
@@ -41,6 +42,7 @@ export class App extends HTMLElement {
         if (this.version && m.version !== this.version) location.reload();
         this.version = m.version;
         document.documentElement.dataset.density = m.config.density;
+        this.outline.keymap = new Keymap(m.keymap);
         if (m.dev && !this.devLoaded) {
           this.devLoaded = true;
           import("../dev/hooks.js").then((d) => d.install(this));

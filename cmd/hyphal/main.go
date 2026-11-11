@@ -33,12 +33,14 @@ func main() {
 	os.Exit(2)
 }
 
-// serve runs `hyphal serve [--dev] [--seed FILE]` in the foreground (§9.3).
+// serve runs `hyphal serve [--dev] [--seed FILE] [--platform linux|darwin]`
+// in the foreground (§9.3).
 // TODO(P1-25): a Cobra command; TODO(P1-30): the detached launch.
 func serve(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	dev := fs.Bool("dev", false, "serve assets uncached; with a dev build, also the test hooks")
 	seed := seedFlag(fs)
+	platform := platformFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -51,5 +53,9 @@ func serve(args []string) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
-	return server.Run(ctx, server.Options{Version: version, Dev: *dev, Seed: r})
+	o := server.Options{Version: version, Dev: *dev, Seed: r}
+	if platform != nil {
+		o.Platform = *platform
+	}
+	return server.Run(ctx, o)
 }

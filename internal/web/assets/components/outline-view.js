@@ -4,6 +4,7 @@
 // for the server's reply, and keys pressed meanwhile queue and replay in order.
 
 import { caretRect, offsetAtPoint, offsetsIn, rangeOf, setCaret } from "../lib/selection.js";
+import { keyString } from "../lib/keys.js";
 import { strings } from "../lib/strings.js";
 
 /** Name of the marker highlight that `::highlight()` styles (D-042). */
@@ -39,6 +40,8 @@ export class OutlineView extends HTMLElement {
     super();
     /** @type {import("../lib/protocol.js").Connection | null} */
     this.conn = null;
+    /** @type {import("../lib/keys.js").Keymap | null} set from welcome */
+    this.keymap = null;
     this.state = null;
     /** @type {Map<string, HTMLElement>} */
     this.rowEls = new Map();
@@ -286,7 +289,7 @@ export class OutlineView extends HTMLElement {
     if (!this.state || e.defaultPrevented) return;
     if (e.isComposing || e.keyCode === 229 || this.composing) return; // never queue composition (§9.3)
     if (MODIFIERS.has(e.key)) return;
-    const k = { key: e.key, ctrl: e.ctrlKey, meta: e.metaKey, shift: e.shiftKey, alt: e.altKey };
+    const k = { key: e.key, str: keyString(e), ctrl: e.ctrlKey, meta: e.metaKey, shift: e.shiftKey, alt: e.altKey };
     if (this.conn.inflight > 0 || this.queue.length) {
       e.preventDefault();
       this.queue.push(k);
@@ -318,26 +321,39 @@ export class OutlineView extends HTMLElement {
     return this.textKey(k, h);
   }
 
+  /**
+   * Runs the text-editing command bound to a key (§6.4); false leaves the key
+   * to the browser: unbound and native keys, and commands that only act at a
+   * bullet's edge.
+   */
   textKey(k, h) {
-    if (k.key !== "ArrowUp" && k.key !== "ArrowDown") this.goalX = null;
-    if ((k.ctrl || k.meta) && !k.alt) {
-      const key = k.key.toLowerCase();
-      return key === "z" || key === "y"; // TODO(P1-37): undo and redo; never the browser's own
-    }
-    switch (k.key) {
-      case "Enter":
-      case "Tab":
-        return true; // TODO(P1-33): structural keys
-      case "ArrowUp":
-      case "ArrowDown":
-        if (k.shift || k.alt) return false;
-        this.verticalMove(h, k.key === "ArrowUp" ? -1 : 1);
+    const cmd = this.keymap?.lookup("text", k.str) ?? null;
+    if (cmd?.id !== "cursor_up" && cmd?.id !== "cursor_down") this.goalX = null;
+    if (!cmd || cmd.native) return false;
+    switch (cmd.id) {
+      case "cursor_up":
+      case "cursor_down":
+        this.verticalMove(h, cmd.id === "cursor_up" ? -1 : 1);
         return true;
-      case "ArrowLeft":
-      case "ArrowRight":
-        return !k.shift && !k.alt && this.horizontalEdge(h, k.key === "ArrowLeft" ? -1 : 1);
+      case "cursor_left":
+      case "cursor_right":
+        return this.horizontalEdge(h, cmd.id === "cursor_left" ? -1 : 1);
+      case "line_start":
+      case "line_end":
+      case "wrap_selection":
+        return false; // TODO(P1-32): the bullet's edge on a second press; wrapping a selection
+      case "backspace":
+      case "delete_forward":
+        return false; // TODO(P1-33): the rules at bullet edges
+      case "undo":
+      case "redo":
+        return true; // TODO(P1-37): the app's stack; never the browser's
     }
-    return false;
+    // Everything else runs on the server, which answers with a state
+    // (CONTRACTS §12.1).
+    const o = offsetsIn(h);
+    this.conn?.action(cmd.id, { off: o?.off ?? 0, end: o?.end ?? 0 });
+    return true;
   }
 
   /** Replays queued keys while no action is waiting for its reply. */

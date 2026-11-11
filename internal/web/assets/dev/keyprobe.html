@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyphal key probe</title>
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="./keyprobe.css">
+<script type="module" src="./keyprobe.js"></script>
+</head>
+<body>
+<main class="keyprobe">
+<h1>Key probe</h1>
+<p>Click the box, then press every key in the table. A key the browser keeps for itself never reaches the page. See docs/keyprobe.md.</p>
+<p class="summary" role="status" aria-live="polite"></p>
+<div class="pad" contenteditable="plaintext-only" tabindex="0" aria-label="Press keys here">Press keys here</div>
+<p><button type="button" class="download">Download result</button></p>
+<h2>Bindings</h2>
+<table class="bindings"><thead><tr><th>Context</th><th>Key</th><th>Command</th><th>Native</th><th>Reached</th></tr></thead><tbody></tbody></table>
+<h2>Reserved by the browser</h2>
+<table class="reserved"><thead><tr><th>Key</th><th>Reached</th></tr></thead><tbody></tbody></table>
+<h2>Other keys pressed</h2>
+<ul class="other"></ul>
+</main>
+</body>
+</html>

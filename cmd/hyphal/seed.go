@@ -9,3 +9,6 @@ import (
 
 // seedFlag exists only in dev builds (TESTING §5).
 func seedFlag(*flag.FlagSet) func() (io.Reader, error) { return nil }
+
+// platformFlag exists only in dev builds.
+func platformFlag(*flag.FlagSet) *string { return nil }

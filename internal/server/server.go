@@ -25,6 +25,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/thorhanks/hyphal/internal/core"
+	"github.com/thorhanks/hyphal/internal/keymap"
 	"github.com/thorhanks/hyphal/internal/platform"
 	"github.com/thorhanks/hyphal/internal/store"
 	"github.com/thorhanks/hyphal/internal/web"
@@ -44,6 +45,7 @@ type Options struct {
 	Version    string
 	Dev        bool      // --dev: no-store caching; with the dev build tag also window.__hyphal
 	Seed       io.Reader // dev build only: a JSON export that replaces the database's contents
+	Platform   string    // dev build only: resolve the keymap for keymap.Linux or keymap.MacOS
 	Stdout     io.Writer // receives "URL <launch URL>"; default os.Stdout
 	Clock      func() time.Time
 }
@@ -77,6 +79,12 @@ func Run(ctx context.Context, o Options) error {
 	if o.Seed != nil && !devBuild {
 		return errors.New("--seed needs a dev build")
 	}
+	if o.Platform != "" && !devBuild {
+		return errors.New("--platform needs a dev build")
+	}
+	if o.Platform != "" && o.Platform != keymap.Linux && o.Platform != keymap.MacOS {
+		return fmt.Errorf("--platform %q: want %s or %s", o.Platform, keymap.Linux, keymap.MacOS)
+	}
 	if err := ensureDir(filepath.Dir(o.DBPath)); err != nil {
 		return err
 	}
@@ -106,7 +114,7 @@ func Run(ctx context.Context, o Options) error {
 		return err
 	}
 	port := l.Addr().(*net.TCPAddr).Port
-	s := New(NewSession(outline, db, SessionOptions{Version: o.Version, Clock: o.Clock, Dev: o.Dev && devBuild}),
+	s := New(NewSession(outline, db, SessionOptions{Version: o.Version, Clock: o.Clock, Dev: o.Dev && devBuild, Platform: o.Platform}),
 		key, port, o.Dev, o.Clock)
 	s.stop = ctx
 
@@ -295,6 +303,10 @@ func (s *Server) Handler() http.Handler {
 			s.refuse(w)
 			return
 		}
+		if r.URL.Path == "/keyprobe" || r.URL.Path == "/keyprobe.json" {
+			s.serveKeyprobe(w, r)
+			return
+		}
 		if r.URL.Path == "/ws" {
 			if !s.originOK(r, true) {
 				http.Error(w, "bad origin", http.StatusForbidden)
@@ -329,6 +341,32 @@ func (s *Server) serveTicket(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, s.auth.newTicket())
 }
 
+// serveKeyprobe serves the key matrix page and its data, in dev builds run
+// with --dev only (§6.4 "Human key matrix", docs/keyprobe.md). The page
+// lives with the other dev assets, so its relative links resolve.
+func (s *Server) serveKeyprobe(w http.ResponseWriter, r *http.Request) {
+	if !s.session.opts.Dev {
+		http.NotFound(w, r)
+		return
+	}
+	if r.URL.Path == "/keyprobe" {
+		http.Redirect(w, r, "/assets/dev/keyprobe.html", http.StatusFound)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	keys := s.session.Keymap()
+	reserved := make([]string, len(keymap.Reserved))
+	for i, k := range keymap.Reserved {
+		reserved[i] = keymap.Resolve(k, keys.Platform())
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(struct {
+		Platform string          `json:"platform"`
+		Keymap   json.RawMessage `json:"keymap"`
+		Reserved []string        `json:"reserved"`
+	}{keys.Platform(), s.session.keyJSON, reserved})
+}
+
 func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request) {
 	name := "index.html"
 	if p, ok := strings.CutPrefix(r.URL.Path, "/assets/"); ok {
@@ -338,7 +376,7 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b, err := fs.ReadFile(s.assets, name)
-	if err != nil {
+	if err != nil || (strings.HasPrefix(name, "dev/") && !s.session.opts.Dev) {
 		http.NotFound(w, r)
 		return
 	}
