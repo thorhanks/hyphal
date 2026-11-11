@@ -325,14 +325,44 @@ type opener struct {
 
 var delimStyle = map[byte]Style{'~': Strike, '=': Highlight}
 
+// openerKey groups openers that can match the same closer.
+type openerKey struct {
+	kind  tokKind
+	ch    byte
+	color Color
+}
+
+func keyOf(t *token) openerKey {
+	if t.kind == tokDelim {
+		return openerKey{kind: tokDelim, ch: t.ch}
+	}
+	return openerKey{kind: t.kind, color: t.color}
+}
+
 // process matches delimiters and color tags in one sequence. A closer pairs
 // with the nearest opener of its kind; openers between them become literal,
-// so styles never overlap (§5.8).
+// so styles never overlap (§5.8). Counting the openers of each kind on the
+// stack keeps it linear: a search runs only when it will match, and a match
+// drops everything above it, so each opener is passed over at most once.
 func (p *parser) process(seq []*token) {
 	var stack []opener
-	find := func(match func(*token) bool) int {
+	count := map[openerKey]int{}
+	push := func(o opener) {
+		stack = append(stack, o)
+		count[keyOf(o.t)]++
+	}
+	cut := func(n int) { // keep stack[:n]
+		for _, o := range stack[n:] {
+			count[keyOf(o.t)]--
+		}
+		stack = stack[:n]
+	}
+	find := func(k openerKey) int {
+		if count[k] == 0 {
+			return -1
+		}
 		for j := len(stack) - 1; j >= 0; j-- {
-			if match(stack[j].t) {
+			if keyOf(stack[j].t) == k {
 				return j
 			}
 		}
@@ -344,11 +374,11 @@ func (p *parser) process(seq []*token) {
 			lo, hi := t.start, t.end
 			if t.canClose {
 				for lo < hi {
-					j := find(func(o *token) bool { return o.kind == tokDelim && o.ch == t.ch })
+					j := find(keyOf(t))
 					if j < 0 {
 						break
 					}
-					stack = stack[:j+1]
+					cut(j + 1)
 					o := &stack[j]
 					n := hi - lo
 					if t.ch == '*' {
@@ -369,17 +399,17 @@ func (p *parser) process(seq []*token) {
 					o.hi -= n
 					lo += n
 					if o.hi == o.lo {
-						stack = stack[:j]
+						cut(j)
 					}
 				}
 			}
 			if lo < hi && t.canOpen {
-				stack = append(stack, opener{t: t, lo: lo, hi: hi})
+				push(opener{t: t, lo: lo, hi: hi})
 			}
 		case tokOpenTag:
-			stack = append(stack, opener{t: t, lo: t.start, hi: t.end})
+			push(opener{t: t, lo: t.start, hi: t.end})
 		case tokCloseTag:
-			j := find(func(o *token) bool { return o.kind == tokOpenTag && o.color == t.color })
+			j := find(openerKey{kind: tokOpenTag, color: t.color})
 			if j < 0 || stack[j].t.end == t.start {
 				continue // unmatched or empty: literal
 			}
@@ -389,7 +419,7 @@ func (p *parser) process(seq []*token) {
 				open:  Range{Start: o.start, End: o.end},
 				close: Range{Start: t.start, End: t.end},
 			})
-			stack = stack[:j]
+			cut(j)
 		}
 	}
 }

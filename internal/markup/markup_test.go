@@ -494,20 +494,41 @@ func TestParse_Linear(t *testing.T) {
 	if raceEnabled {
 		budget *= 20
 	}
-	rep := func(s string) string { return strings.Repeat(s, 10_000/len(s)+1)[:10_000] }
+	for name, in := range linearInputs(10_000) {
+		if d := bestParse(in); d > budget {
+			t.Errorf("%s: parse took %v, budget %v", name, d, budget)
+		}
+	}
+	// Growth, which a fixed budget only catches near its edge: eight times
+	// the input takes about 8× as long when linear and 64× when quadratic.
+	big := linearInputs(80_000)
+	for name, in := range linearInputs(10_000) {
+		small := bestParse(in)
+		if r := float64(bestParse(big[name])) / float64(max(small, 50*time.Microsecond)); r > 32 {
+			t.Errorf("%s: 8× the input took %.1f× as long (%v at 10k)", name, r, small)
+		}
+	}
+}
+
+// linearInputs are adversarial inputs of n bytes for the delimiter stack,
+// brackets, links and tags.
+func linearInputs(n int) map[string]string {
+	rep := func(s string) string { return strings.Repeat(s, n/len(s)+1)[:n] }
 	r := rand.New(rand.NewPCG(1, 2))
-	random := make([]byte, 10_000)
+	random := make([]byte, n)
 	const alphabet = "*~=`<>[]()\\ab /:redhtps"
 	for i := range random {
 		random[i] = alphabet[r.IntN(len(alphabet))]
 	}
-	inputs := map[string]string{
+	return map[string]string{
 		"stars":         rep("*a "),
 		"star runs":     rep("**a"),
 		"open stars":    rep("*a"),
 		"close stars":   rep("a* "),
 		"tildes":        rep("~~a "),
 		"tildes+stars":  rep("~~a ") + rep("b* "),
+		"tags+stars":    rep("<red>a ") + rep("b* "),
+		"stars+tags":    rep("*a ") + rep("</blue>"),
 		"backticks":     rep("`a "),
 		"brackets":      rep("["),
 		"close":         rep("]"),
@@ -518,23 +539,23 @@ func TestParse_Linear(t *testing.T) {
 		"close tags":    rep("</red>"),
 		"mixed tags":    rep("<red><blue></red>"),
 		"links":         rep("[a](https://x)"),
-		"nested stars":  strings.Repeat("*", 5000) + strings.Repeat("a*", 2500),
+		"nested stars":  strings.Repeat("*", n/2) + strings.Repeat("a*", n/4),
 		"random":        string(random),
 		"escapes":       rep(`\*`),
 		"code in label": rep("[`a]` "),
 	}
-	for name, in := range inputs {
-		best := time.Hour
-		for range 5 {
-			start := time.Now()
-			d := markup.Parse(in)
-			_ = d.Concealed()
-			best = min(best, time.Since(start))
-		}
-		if best > budget {
-			t.Errorf("%s: parse took %v, budget %v", name, best, budget)
-		}
+}
+
+// bestParse is the fastest of five parses, to keep noise out.
+func bestParse(in string) time.Duration {
+	best := time.Hour
+	for range 5 {
+		start := time.Now()
+		d := markup.Parse(in)
+		_ = d.Concealed()
+		best = min(best, time.Since(start))
 	}
+	return best
 }
 
 func BenchmarkParse(b *testing.B) {
